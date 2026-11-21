@@ -8,8 +8,8 @@ index 218082ae31..f192b7a221 100644
    //      flash on refresh (empty cwd → placeholder);
 -  //   5. list ready but no owning workspace (deleted from the sidebar) →
 -  //      placeholder, never the deleted folder's name via cwd.
-+  //   5. no owning workspace (a cwd-only Session, e.g. a deep-projects
-+  //      project chat) → cwd folder name, so the composer stays usable.
++  //   5. no owning workspace (a Session created with only a cwd) →
++  //      cwd folder name, so the composer stays usable.
    // A title still automatic reads in the reader's language, matching the
    // sidebar row the same Workspace has there.
    const storedChipTitle = pendingWorkspace?.title
