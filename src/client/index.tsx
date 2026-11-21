@@ -324,13 +324,16 @@ const CSS = `
 .dshpx-tabpane .dshpx-grid { gap: 14px; }
 .dshpx-tabpane .dshpx-h1 { font-size: 20px; }
 .dshpx-tabpane .dshpx-card { padding: 14px 16px; }
+/* Seat the hero options (our Project chip) right after the workspace chip. */
+:has(> [data-slot="conversation.hero.options"] .dshpx-hero-chip) { order: 1; margin-left: 0 !important; }
+[data-slot="conversation.hero.agentPreset"] > * { order: 2; }
 .dshpx-hero-chip {
   display: inline-flex; align-items: center; gap: 4px; max-width: 200px;
   background: transparent; border: none; border-radius: 6px; padding: 4px 6px; cursor: pointer;
-  font: inherit; font-size: 13px; color: var(--dsw-alias-label-caption); transition: background 120ms ease, color 120ms ease;
+  font: inherit; font-size: 13px; color: var(--dsw-alias-label-primary); transition: background 120ms ease, color 120ms ease;
 }
 .dshpx-hero-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dshpx-hero-chip:hover, .dshpx-hero-chip[data-active] { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); }
+.dshpx-hero-chip:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .dshpx-hero-chip svg { fill: currentColor; flex: none; }
 .dshpx-stock-composer {
   display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; width: 100%; max-width: 720px; margin: 0 auto;
