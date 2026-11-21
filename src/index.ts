@@ -520,7 +520,7 @@ export function buildTools(root: string): Array<{
   ]
 }
 
-export const inject = ['connection', 'agents']
+export const inject = ['connection', 'agents', 'workingDirectory']
 
 export function apply(ctx: any): void {
   const root = projectsRoot()
@@ -546,6 +546,40 @@ export function apply(ctx: any): void {
         `deep-projects.route${route.path}`,
       )
     }
+  }
+
+  // Move a chat into a project (slug) or out of one (no slug): changes the
+  // Session's working directory through dsh's working-directory service, as
+  // Agent maintenance so it never lands mid-turn. "Out" returns to the chat's
+  // original folder, or dsh's default folder when that was a project too.
+  if (ctx.connection?.fetch?.register && ctx.workingDirectory) {
+    ctx.effect(() => ctx.connection.fetch.register({
+      path: '/api/deep-projects/move',
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request: Request): Promise<Response> => {
+        let body: { sessionId?: string; slug?: string | null } = {}
+        try { body = await request.json() } catch { /* fall through */ }
+        const agent = typeof body.sessionId === 'string' ? ctx.agents?.get(body.sessionId) : undefined
+        if (!agent) return json({ ok: false, code: 'notLoaded', error: 'chat is not loaded' }, 409)
+        let target: string
+        if (body.slug) {
+          if (!/^[a-z0-9][a-z0-9-]{0,59}$/.test(body.slug)) return json({ ok: false, code: 'badSlug', error: 'invalid slug' }, 400)
+          target = join(root, body.slug)
+        } else {
+          const original: string | undefined = agent.session.header?.cwd
+          const inProjects = !original || original === root || original.startsWith(root + '/')
+          target = inProjects ? ctx.workingDirectory.defaultDirectory : original
+        }
+        try {
+          let cwd = ''
+          await agent.runMaintenance(async (signal: AbortSignal) => { cwd = await ctx.workingDirectory.set(agent, target, signal) })
+          return json({ ok: true, cwd })
+        } catch (error) {
+          return json({ ok: false, code: 'busy', error: describe(error) }, 409)
+        }
+      },
+    }), 'deep-projects.route/api/deep-projects/move')
   }
 
   // Tools are per-agent: register on every agent as it is created.

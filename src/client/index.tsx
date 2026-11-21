@@ -428,6 +428,12 @@ interface SessionRow {
   updatedAt: number
   cwd?: string
   projections?: { values?: Record<string, unknown> } | null
+  projectionValues?: { workingDirectory?: string | null } | null
+}
+
+/** A chat's current folder: dsh's working directory once moved, else where it started. */
+function cwdOf(row: SessionRow | undefined): string | undefined {
+  return row?.projectionValues?.workingDirectory ?? row?.cwd
 }
 
 // ---------------------------------------------------------------------------
@@ -468,7 +474,7 @@ function sessionsFor(project: ProjectRow | null, all: SessionRow[]): SessionRow[
   if (!project?.path) return []
   const p = project.path
   return all
-    .filter(r => (r.cwd ?? '') === p || (r.cwd ?? '').startsWith(p + '/'))
+    .filter(r => (cwdOf(r) ?? '') === p || (cwdOf(r) ?? '').startsWith(p + '/'))
     .sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
@@ -505,6 +511,7 @@ function useOnChanged(fn: () => void): void {
   useEffect(() => { changeListeners.add(fn); return () => { changeListeners.delete(fn) } }, [fn])
 }
 let editRequest: string | null = null
+let moveTargets: ProjectRow[] = []
 
 type Point = { x: number; y: number }
 type Menus = { open(target: unknown, point: Point): void; close(): void; active: { getSnapshot(): any } }
@@ -967,7 +974,7 @@ function DetailPane({ t, slug }: { t: T; slug: string | null }): ReactNode {
 function HeroProjectPicker(props: PropsRuntime<'conversation.hero.options'>): ReactNode {
   const t = props.t
   const { sessionId, useSessions } = props
-  const cwd = useSessions(s => s.byId[sessionId]?.cwd)
+  const cwd = useSessions(s => cwdOf(s.byId[sessionId] as SessionRow | undefined))
   const [rows, setRows] = useState<ProjectRow[]>([])
   const load = useCallback(() => {
     getJson('list').then((r) => { setRows(r?.ok ? (r.projects ?? []) : []) }).catch(() => { setRows([]) })
@@ -1055,7 +1062,7 @@ function StockProjectComposer(props: { matched: { cwd: string }; sessionId?: str
 function ProjectHeaderButton(props: PropsRuntime<'conversation.session.header.utilities'>): ReactNode {
   const t = props.t
   const { sessionId, useSessions } = props
-  const cwd = useSessions(s => s.byId[sessionId]?.cwd)
+  const cwd = useSessions(s => cwdOf(s.byId[sessionId] as SessionRow | undefined))
   const [rows, setRows] = useState<ProjectRow[] | null>(null)
 
   useEffect(() => {
@@ -1223,7 +1230,7 @@ function ProjectContent({ t, slug, compact }: { t: T; slug: string; compact?: bo
 function ProjectInfoBody(props: PropsRuntime<'sidebar.right.pane.tab'> & PropsLocale<'projects'>): ReactNode {
   const t = props.t
   const { sessionId, useSessions } = props
-  const cwd = useSessions(s => s.byId[sessionId]?.cwd)
+  const cwd = useSessions(s => cwdOf(s.byId[sessionId] as SessionRow | undefined))
   const [rows, setRows] = useState<ProjectRow[] | null>(null)
 
   useEffect(() => {
@@ -1543,6 +1550,34 @@ export function apply(ctx: ClientContext): void {
       ctx.slots.register({ name: 'conversation.composer', priority: -5, locale: 'projects', select: selectStockProjectComposer } as any, StockProjectComposer as any),
     )
   }, 'deep-projects: stock composer')
+
+  // "Move to project" on dsh's own chat "…" menu. dsh changes the chat's
+  // working directory; the chat keeps its history and stays in its workspace list.
+  ctx.effect(() => (ctx as any).contextMenus.register({
+    id: 'deep-projects.move', target: 'session', order: 450,
+    observe: () => [(ctx as any).sessions.list],
+    resolve: ({ sessionId }: { sessionId: string }) => {
+      const row = (ctx as any).sessions.list.getSnapshot().byId[sessionId] as SessionRow | undefined
+      const cwd = cwdOf(row) ?? ''
+      const rows = moveTargets.filter(p => p.path && !p.archived)
+      const current = rows.find(p => cwd === p.path || cwd.startsWith(p.path + '/'))
+      const move = (slug: string | null) => async () => {
+        const sessions = (ctx as any).sessions
+        const r = await sessions.using(sessionId, { source: 'controllerOperation' }, () => postJson('move', { sessionId, slug }))
+        if (!r?.ok) throw new Error(r?.error ?? 'move failed')
+        await sessions.refreshProjections(sessionId).catch(() => {})
+        notifyChanged()
+      }
+      return [
+        { id: 'move', label: t('menu.moveTo'), icon: { key: 'deep-projects.open' }, disabled: rows.length === 0,
+          children: rows.filter(p => p !== current).map(p => ({ id: p.slug, label: p.name, run: move(p.slug), failureLabel: t('menu.moveFailed') })) },
+        ...(current ? [{ id: 'remove', label: t('menu.removeFrom'), icon: { key: 'deep-projects.archive' }, run: move(null), failureLabel: t('menu.moveFailed') }] : []),
+      ]
+    },
+  }), 'deep-projects: move chat menu')
+  const loadTargets = () => { getJson('list').then((r) => { moveTargets = r?.ok ? (r.projects ?? []) : [] }).catch(() => {}) }
+  loadTargets()
+  changeListeners.add(loadTargets)
 
   // Pinnable sidebar launcher — the shell's built-in pin system
   // (sidebar.panellist.actions / "More" menu) shows/hides this row.
