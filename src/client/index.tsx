@@ -38,6 +38,7 @@ import {
   IconNewChatOutlineRegular as NewChatIcon,
   IconTrashOutlineRegular as TrashIcon,
   IconDeliverDocRegular as DocIcon,
+  IconChevronDownOutlineRegular as ChevronIcon,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only pulls (stripped by esbuild): augment cordis Context with the
 // members we use (sessions, layout) + slot/locale types.
@@ -323,6 +324,14 @@ const CSS = `
 .dshpx-tabpane .dshpx-grid { gap: 14px; }
 .dshpx-tabpane .dshpx-h1 { font-size: 20px; }
 .dshpx-tabpane .dshpx-card { padding: 14px 16px; }
+.dshpx-hero-chip {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 200px;
+  background: transparent; border: none; border-radius: 6px; padding: 4px 6px; cursor: pointer;
+  font: inherit; font-size: 13px; color: var(--dsw-alias-label-caption); transition: background 120ms ease, color 120ms ease;
+}
+.dshpx-hero-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dshpx-hero-chip:hover, .dshpx-hero-chip[data-active] { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); }
+.dshpx-hero-chip svg { fill: currentColor; flex: none; }
 .dshpx-header-btn {
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent; border: none; border-radius: 6px; padding: 4px; cursor: pointer;
@@ -938,6 +947,35 @@ function DetailPane({ t, slug }: { t: T; slug: string | null }): ReactNode {
 // utilities row, shown only when the session's cwd maps to a project. Clicking
 // opens the project's info tab (memories, instructions, knowledge).
 // ---------------------------------------------------------------------------
+// New-chat hero: "Project ▾" chip. Picking a project opens a fresh chat whose
+// cwd is the project folder (projects stay folders, not dsh workspaces).
+function HeroProjectPicker(props: PropsRuntime<'conversation.hero.options'>): ReactNode {
+  const t = props.t
+  const { sessionId, useSessions } = props
+  const cwd = useSessions(s => s.byId[sessionId]?.cwd)
+  const [rows, setRows] = useState<ProjectRow[]>([])
+  const load = useCallback(() => {
+    getJson('list').then((r) => { setRows(r?.ok ? (r.projects ?? []) : []) }).catch(() => { setRows([]) })
+  }, [])
+  useEffect(load, [load])
+  useOnChanged(load)
+  const live = rows.filter(r => r.path && !r.archived)
+  if (live.length === 0) return null
+  const current = live.find(r => cwd === r.path || (cwd ?? '').startsWith(r.path + '/'))
+  return (
+    <button
+      className="dshpx-hero-chip"
+      type="button"
+      data-active={current ? 'true' : undefined}
+      onClick={(e) => { toggleMenu('dsh-project-picker', { projects: live, current: current?.slug }, () => true, pointOf(e)) }}
+    >
+      <FolderClosedIcon width={14} height={14} />
+      <span>{current ? current.name : t('hero.project')}</span>
+      <ChevronIcon width={12} height={12} />
+    </button>
+  )
+}
+
 function ProjectHeaderButton(props: PropsRuntime<'conversation.session.header.utilities'>): ReactNode {
   const t = props.t
   const { sessionId, useSessions } = props
@@ -1406,6 +1444,23 @@ export function apply(ctx: ClientContext): void {
         } },
     ],
   }), 'deep-projects: project menu')
+
+  ctx.effect(() => (ctx as any).contextMenus.register({
+    id: 'deep-projects.picker', target: 'dsh-project-picker', order: 100,
+    resolve: (v: { projects: ProjectRow[]; current?: string }) => [...v.projects]
+      .sort((a, b) => Number(!!b.starred) - Number(!!a.starred))
+      .map(p => ({
+        id: p.slug, label: p.name, icon: { key: p.slug === v.current ? 'deep-projects.open' : 'deep-projects.newChat' },
+        disabled: p.slug === v.current,
+        run: () => { if (p.path) void startProjectChat(p.path) },
+      })),
+  }), 'deep-projects: hero picker menu')
+
+  ctx.effect(() => {
+    ctx.slots.inject('conversation.hero.options', () =>
+      ctx.slots.register({ name: 'conversation.hero.options', id: 'deep-projects.picker', locale: 'projects' } as any, HeroProjectPicker as any),
+    )
+  }, 'deep-projects: hero picker')
 
   // Pinnable sidebar launcher — the shell's built-in pin system
   // (sidebar.panellist.actions / "More" menu) shows/hides this row.
