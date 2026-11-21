@@ -996,8 +996,9 @@ function HeroProjectPicker(props: PropsRuntime<'conversation.hero.options'>): Re
 // first message itself; once the chat has a message, dsh's own input takes over.
 // Builds with patches/ui-conversation-cwd-hero.patch keep the full input: the
 // takeover probes the hidden real editor and steps aside when it is editable.
-const HERO_PATCHED_KEY = 'deep-projects:heroPatched'
-let heroPatched = (() => { try { return localStorage.getItem(HERO_PATCHED_KEY) === '1' } catch { return false } })()
+// Not persisted: a saved flag outlived removing the patch and locked chats again.
+let heroPatched = false
+try { localStorage.removeItem('deep-projects:heroPatched') } catch { /* private mode */ }
 
 function selectStockProjectComposer(owner: { sessionId?: string; session?: { blank?: boolean } }): { cwd: string } | null {
   const sid = owner.sessionId
@@ -1019,7 +1020,6 @@ function StockProjectComposer(props: { matched: { cwd: string }; sessionId?: str
     const ed = document.querySelector('[data-composer-seat] [contenteditable]')
     if (ed?.getAttribute('contenteditable') !== 'true' || !sessionId) return
     heroPatched = true
-    try { localStorage.setItem(HERO_PATCHED_KEY, '1') } catch { /* private mode */ }
     void (appCtx?.get('sessions') as any)?.refreshProjections(sessionId) // re-render so the chain re-selects
   }, [sessionId])
   const send = async (): Promise<void> => {
