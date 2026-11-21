@@ -31,7 +31,7 @@
       "platform": "web"
     },
     "compatibility": {
-      "dsh": ">=0.1.0-rc.5"
+      "dsh": ">=0.2.2-rc.1 <0.4.0-0"
     }
   },
   "dshhub": {
@@ -47,7 +47,7 @@
       "web"
     ],
     "compatibility": {
-      "dsh": ">=0.1.0-rc.5",
+      "dsh": ">=0.2.2-rc.1 <0.4.0-0",
       "node": ">=20"
     },
     "permissions": {}
@@ -81,7 +81,8 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=20"
+    "node": ">=20",
+    "dsh": ">=0.2.2-rc.1 <0.4.0-0"
   },
   "os": [
     "darwin",
@@ -89,7 +90,8 @@
     "win32"
   ],
   "scripts": {
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/smoke.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2"

@@ -99,7 +99,7 @@ npx @deepseek-ai/dsh plugin --profile web add file:/path/to/deep-projects
 
 **Projects folder**: `~/deep-projects` by default. Set `DSH_PROJECTS_ROOT` in the dsh server's environment to use another folder.
 
-**Requirements**: dsh `>=0.1.0-rc.5` web GUI, Node 20+. Tested on dsh 0.2.2.
+**Requirements**: the dsh web GUI, dsh 0.2.2 or newer (`engines.dsh`: `>=0.2.2-rc.1 <0.4.0-0`), Node 20+.
 
 ### Sidebar chat tree (optional)
 
