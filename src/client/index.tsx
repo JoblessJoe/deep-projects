@@ -1575,6 +1575,22 @@ export function apply(ctx: ClientContext): void {
       ]
     },
   }), 'deep-projects: move chat menu')
+  // dsh's submenus hang upward from the parent menu with no height cap, so a
+  // long project list runs off the top of the window. Cap any submenu that
+  // overflows the top and let it scroll.
+  ctx.effect(() => {
+    const fit = (): void => {
+      for (const el of document.querySelectorAll<HTMLElement>('[role="menu"][class*="_submenu"]')) {
+        const r = el.getBoundingClientRect()
+        if (r.top >= 12) continue
+        el.style.maxHeight = Math.max(120, r.bottom - 12) + 'px'
+        el.style.overflowY = 'auto'
+      }
+    }
+    const mo = new MutationObserver(() => { requestAnimationFrame(fit) })
+    mo.observe(document.body, { childList: true, subtree: true })
+    return () => { mo.disconnect() }
+  }, 'deep-projects: submenu fit')
   const loadTargets = () => { getJson('list').then((r) => { moveTargets = r?.ok ? (r.projects ?? []) : [] }).catch(() => {}) }
   loadTargets()
   changeListeners.add(loadTargets)
