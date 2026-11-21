@@ -7,6 +7,7 @@
   <a href="https://www.npmjs.com/package/deep-projects"><img src="https://img.shields.io/npm/dm/deep-projects?color=4d6bfe" alt="npm downloads"></a>
   <img src="https://img.shields.io/badge/dependencies-0-4d6bfe" alt="zero runtime dependencies">
   <a href="https://github.com/JoblessJoe/deep-projects/blob/main/LICENSE"><img src="https://img.shields.io/github/license/JoblessJoe/deep-projects?color=4d6bfe" alt="MIT license"></a>
+  <a href="https://joblessjoe.com/deep-projects"><img src="https://img.shields.io/badge/website-joblessjoe.com-4d6bfe" alt="project page on joblessjoe.com"></a>
   <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/topic-dsh--plugin-0b6bcb" alt="dsh-plugin topic"></a>
 </p>
 
