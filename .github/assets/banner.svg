@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="ic-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1B2B4A"/>
+      <stop offset="1" stop-color="#070B16"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#4D6BFE" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#4D6BFE" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="ic-c"><rect width="64" height="64" rx="15"/></clipPath>
+  </defs>
+  <rect width="1200" height="420" rx="20" fill="#0d1117"/>
+  <circle cx="930" cy="210" r="260" fill="url(#glow)"/>
+
+  <!-- icon -->
+  <svg x="60" y="101" width="60" height="60" viewBox="0 0 64 64">
+    <g clip-path="url(#ic-c)"><rect width="64" height="64" fill="url(#ic-bg)"/></g>
+    <g transform="translate(14 14) scale(1.5)" fill="none" stroke="#8FA6FF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+      <path d="M3 11h18" opacity="0.5"/>
+    </g>
+  </svg>
+
+  <text x="134" y="150" fill="#e6edf3" font-size="62" font-weight="700" letter-spacing="-1">deep-projects</text>
+  <text x="62" y="198" fill="#8b949e" font-size="22">Project rooms for the DeepSeek Harness web GUI.</text>
+  <text x="62" y="228" fill="#8b949e" font-size="22">Your agents already know the project. Every chat.</text>
+
+  <g font-size="15" font-weight="600">
+    <rect x="62" y="262" width="96" height="30" rx="15" fill="#4D6BFE" fill-opacity=".14" stroke="#4D6BFE" stroke-opacity=".45"/>
+    <text x="110" y="282" fill="#8FA6FF" text-anchor="middle">goal</text>
+    <rect x="168" y="262" width="112" height="30" rx="15" fill="#4D6BFE" fill-opacity=".14" stroke="#4D6BFE" stroke-opacity=".45"/>
+    <text x="224" y="282" fill="#8FA6FF" text-anchor="middle">memory</text>
+    <rect x="290" y="262" width="132" height="30" rx="15" fill="#4D6BFE" fill-opacity=".14" stroke="#4D6BFE" stroke-opacity=".45"/>
+    <text x="356" y="282" fill="#8FA6FF" text-anchor="middle">instructions</text>
+    <rect x="432" y="262" width="122" height="30" rx="15" fill="#4D6BFE" fill-opacity=".14" stroke="#4D6BFE" stroke-opacity=".45"/>
+    <text x="493" y="282" fill="#8FA6FF" text-anchor="middle">knowledge</text>
+  </g>
+  <text x="62" y="334" fill="#6e7681" font-size="16">Plain markdown files · auto-loaded by dsh · 8 agent tools · no dependencies</text>
+
+  <!-- mock project card -->
+  <g transform="translate(700 70)">
+    <rect width="440" height="280" rx="16" fill="#161b22" stroke="#30363d"/>
+    <text x="24" y="44" fill="#e6edf3" font-size="22" font-weight="700">Home Server</text>
+    <rect x="300" y="24" width="116" height="30" rx="8" fill="#e6edf3"/>
+    <text x="358" y="44" fill="#0d1117" font-size="14" font-weight="600" text-anchor="middle">New chat</text>
+
+    <rect x="24" y="70" width="392" height="62" rx="10" fill="#21262d"/>
+    <text x="40" y="92" fill="#8b949e" font-size="11" font-weight="700" letter-spacing="1">GOAL</text>
+    <text x="40" y="116" fill="#e6edf3" font-size="14">All home services on one quiet box, VPN only.</text>
+
+    <text x="24" y="166" fill="#e6edf3" font-size="15" font-weight="700">Memory</text>
+    <rect x="96" y="152" width="26" height="18" rx="9" fill="#21262d"/>
+    <text x="109" y="165" fill="#8b949e" font-size="11" text-anchor="middle">5</text>
+    <g font-size="13" fill="#c9d1d9">
+      <circle cx="30" cy="190" r="2.5" fill="#4D6BFE"/>
+      <text x="42" y="194">Nightly restic backups to the NAS at 03:00</text>
+      <circle cx="30" cy="216" r="2.5" fill="#4D6BFE"/>
+      <text x="42" y="220">Use Caddy for internal TLS, not nginx</text>
+      <circle cx="30" cy="242" r="2.5" fill="#4D6BFE"/>
+      <text x="42" y="246">Prefers short answers, one command at a time</text>
+    </g>
+  </g>
+</svg>
