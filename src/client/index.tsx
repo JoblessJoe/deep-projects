@@ -74,7 +74,7 @@ const CSS = `
   --dshpx-hover: var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-skeleton));
   font-family: inherit; color: var(--dsw-alias-label-primary);
 }
-.dshpx-side, .dshpx-tabpane { --dshpx-line: color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent);
+.dshpx-side, .dshpx-tabpane, .dshpx-stock-composer { --dshpx-line: color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent);
   --dshpx-fill: var(--dsw-alias-bg-skeleton); --dshpx-hover: var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-skeleton)); }
 .dshpx-split { display: flex; width: 100%; height: 100%; min-height: 0; }
 .dshpx-root svg, .dshpx-side svg, .dshpx-tabpane svg, .dshpx-header-btn svg { fill: currentColor; }
@@ -332,6 +332,18 @@ const CSS = `
 .dshpx-hero-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dshpx-hero-chip:hover, .dshpx-hero-chip[data-active] { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); }
 .dshpx-hero-chip svg { fill: currentColor; flex: none; }
+.dshpx-stock-composer {
+  display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; width: 100%; max-width: 720px; margin: 0 auto;
+  border: 1px solid var(--dshpx-line); border-radius: 16px; padding: 12px 14px; background: var(--dsw-alias-bg-base);
+}
+.dshpx-stock-head { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dsw-alias-label-caption); }
+.dshpx-stock-head svg { fill: currentColor; }
+.dshpx-stock-composer textarea {
+  resize: none; border: none; outline: none; background: transparent; font: inherit; font-size: 14px;
+  color: var(--dsw-alias-label-primary);
+}
+.dshpx-stock-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--dsw-alias-label-tertiary); }
+.dshpx-stock-err { color: var(--dsw-alias-state-error-primary); }
 .dshpx-header-btn {
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent; border: none; border-radius: 6px; padding: 4px; cursor: pointer;
@@ -976,6 +988,68 @@ function HeroProjectPicker(props: PropsRuntime<'conversation.hero.options'>): Re
   )
 }
 
+// Stock dsh locks the new-chat input for a chat outside any workspace, which
+// is every project chat. On stock builds this composer takeover sends the
+// first message itself; once the chat has a message, dsh's own input takes over.
+// Builds with patches/ui-conversation-cwd-hero.patch keep the full input: the
+// takeover probes the hidden real editor and steps aside when it is editable.
+const HERO_PATCHED_KEY = 'deep-projects:heroPatched'
+let heroPatched = (() => { try { return localStorage.getItem(HERO_PATCHED_KEY) === '1' } catch { return false } })()
+
+function selectStockProjectComposer(owner: { sessionId?: string; session?: { blank?: boolean } }): { cwd: string } | null {
+  const sid = owner.sessionId
+  if (heroPatched || !sid || owner.session?.blank !== true || !appCtx) return null
+  const cwd = (appCtx.get('sessions') as any)?.list.getSnapshot().byId[sid]?.cwd as string | undefined
+  const ws = (appCtx.get('workspaces') as any)?.list.getSnapshot()
+  if (!cwd || ws?.phase !== 'ready') return null
+  if (ws.items.some((w: { sessionIds: readonly string[] }) => w.sessionIds.includes(sid))) return null
+  return { cwd }
+}
+
+function StockProjectComposer(props: { matched: { cwd: string }; sessionId?: string; t: (k: string) => string }): ReactNode {
+  const { matched, sessionId, t } = props
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    // ponytail: DOM probe for the patched hero; a host flag would be cleaner if dsh ever ships one.
+    const ed = document.querySelector('[data-composer-seat] [contenteditable]')
+    if (ed?.getAttribute('contenteditable') !== 'true' || !sessionId) return
+    heroPatched = true
+    try { localStorage.setItem(HERO_PATCHED_KEY, '1') } catch { /* private mode */ }
+    void (appCtx?.get('sessions') as any)?.refreshProjections(sessionId) // re-render so the chain re-selects
+  }, [sessionId])
+  const send = async (): Promise<void> => {
+    const body = text.trim()
+    if (!body || !sessionId || busy) return
+    const session = (appCtx?.get('sessions') as any)?.binding(sessionId)?.session
+    if (!session) { setError(t('stock.failed')); return }
+    setBusy(true); setError(null)
+    const r = await session.prompt([{ type: 'text', text: body }], 'queue').catch((e: unknown) => ({ ok: false, error: { message: String(e) } }))
+    setBusy(false)
+    if (r?.ok) setText('')
+    else setError(r?.error?.message ?? t('stock.failed'))
+  }
+  const name = matched.cwd.split('/').filter(Boolean).pop() ?? matched.cwd
+  return (
+    <div className="dshpx-stock-composer">
+      <div className="dshpx-stock-head"><FolderClosedIcon width={14} height={14} /><span>{name}</span></div>
+      <textarea
+        value={text}
+        rows={3}
+        disabled={busy}
+        placeholder={t('stock.placeholder')}
+        onChange={(e) => { setText(e.target.value) }}
+        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send() } }}
+      />
+      <div className="dshpx-stock-foot">
+        {error ? <span className="dshpx-stock-err">{error}</span> : <span>{t('stock.hint')}</span>}
+        <button className="dshpx-btn dshpx-btn-primary dshpx-btn-sm" type="button" disabled={busy || !text.trim()} onClick={() => { void send() }}>{t('stock.send')}</button>
+      </div>
+    </div>
+  )
+}
+
 function ProjectHeaderButton(props: PropsRuntime<'conversation.session.header.utilities'>): ReactNode {
   const t = props.t
   const { sessionId, useSessions } = props
@@ -1461,6 +1535,12 @@ export function apply(ctx: ClientContext): void {
       ctx.slots.register({ name: 'conversation.hero.options', id: 'deep-projects.picker', locale: 'projects' } as any, HeroProjectPicker as any),
     )
   }, 'deep-projects: hero picker')
+
+  ctx.effect(() => {
+    ctx.slots.inject('conversation.composer', () =>
+      ctx.slots.register({ name: 'conversation.composer', priority: -5, locale: 'projects', select: selectStockProjectComposer } as any, StockProjectComposer as any),
+    )
+  }, 'deep-projects: stock composer')
 
   // Pinnable sidebar launcher — the shell's built-in pin system
   // (sidebar.panellist.actions / "More" menu) shows/hides this row.
