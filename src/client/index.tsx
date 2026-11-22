@@ -972,9 +972,12 @@ function DetailPane({ t, slug }: { t: T; slug: string | null }): ReactNode {
 // New-chat hero: "Project ▾" chip. Picking a project opens a fresh chat whose
 // cwd is the project folder (projects stay folders, not dsh workspaces).
 function HeroProjectPicker(props: PropsRuntime<'conversation.hero.options'>): ReactNode {
-  const t = props.t
-  const { sessionId, useSessions } = props
-  const cwd = useSessions(s => cwdOf(s.byId[sessionId] as SessionRow | undefined))
+  const cwd = props.useSessions(s => cwdOf(s.byId[props.sessionId] as SessionRow | undefined))
+  return <ProjectChip cwd={cwd} t={props.t} />
+}
+
+/** "Project ▾" chip; its menu lists projects and dsh workspaces. */
+function ProjectChip({ cwd, t }: { cwd: string | undefined; t: (k: string) => string }): ReactNode {
   const [rows, setRows] = useState<ProjectRow[]>([])
   const load = useCallback(() => {
     getJson('list').then((r) => { setRows(r?.ok ? (r.projects ?? []) : []) }).catch(() => { setRows([]) })
@@ -999,17 +1002,12 @@ function HeroProjectPicker(props: PropsRuntime<'conversation.hero.options'>): Re
 }
 
 // Stock dsh locks the new-chat input for a chat outside any workspace, which
-// is every project chat. On stock builds this composer takeover sends the
-// first message itself; once the chat has a message, dsh's own input takes over.
-// Builds with patches/ui-conversation-cwd-hero.patch keep the full input: the
-// takeover probes the hidden real editor and steps aside when it is editable.
-// Checked on every load, never saved, so removing the patch is picked up.
-let heroPatched = false
-try { localStorage.removeItem('deep-projects:heroPatched') } catch { /* private mode */ }
-
+// is every project chat. This composer takeover replaces dsh's whole new-chat
+// hero (stock stays mounted but hidden) and sends the first message itself;
+// once the chat has a message, dsh's own input takes over.
 function selectStockProjectComposer(owner: { sessionId?: string; session?: { blank?: boolean } }): { cwd: string } | null {
   const sid = owner.sessionId
-  if (heroPatched || !sid || owner.session?.blank !== true || !appCtx) return null
+  if (!sid || owner.session?.blank !== true || !appCtx) return null
   const cwd = (appCtx.get('sessions') as any)?.list.getSnapshot().byId[sid]?.cwd as string | undefined
   const ws = (appCtx.get('workspaces') as any)?.list.getSnapshot()
   if (!cwd || ws?.phase !== 'ready') return null
@@ -1022,12 +1020,6 @@ function StockProjectComposer(props: { matched: { cwd: string }; sessionId?: str
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  useEffect(() => {
-    const ed = document.querySelector('[data-composer-seat] [contenteditable]')
-    if (ed?.getAttribute('contenteditable') !== 'true' || !sessionId) return
-    heroPatched = true
-    void (appCtx?.get('sessions') as any)?.refreshProjections(sessionId) // re-render so the chain re-selects
-  }, [sessionId])
   const send = async (): Promise<void> => {
     const body = text.trim()
     if (!body || !sessionId || busy) return
@@ -1039,10 +1031,9 @@ function StockProjectComposer(props: { matched: { cwd: string }; sessionId?: str
     if (r?.ok) setText('')
     else setError(r?.error?.message ?? t('stock.failed'))
   }
-  const name = matched.cwd.split('/').filter(Boolean).pop() ?? matched.cwd
   return (
     <div className="dshpx-stock-composer">
-      <div className="dshpx-stock-head"><FolderClosedIcon width={14} height={14} /><span>{name}</span></div>
+      <div className="dshpx-stock-head"><ProjectChip cwd={matched.cwd} t={t} /></div>
       <textarea
         value={text}
         rows={3}
@@ -1536,7 +1527,12 @@ export function apply(ctx: ClientContext): void {
         id: p.slug, label: p.name, icon: { key: p.slug === v.current ? 'deep-projects.open' : 'deep-projects.newChat' },
         disabled: p.slug === v.current,
         run: () => { if (p.path) void startProjectChat(p.path) },
-      })),
+      }))
+      .concat(((appCtx?.get('workspaces') as any)?.list.getSnapshot().items ?? [])
+        .map((w: { workspaceId: string; title: string }, i: number) => ({
+          id: 'ws:' + w.workspaceId, label: w.title, icon: { key: 'deep-projects.newChat' }, separatorBefore: i === 0,
+          run: () => { void (appCtx?.get('uiWorkspace') as any)?.openWorkspace(w.workspaceId) },
+        }))),
   }), 'deep-projects: hero picker menu')
 
   ctx.effect(() => {

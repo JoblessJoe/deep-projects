@@ -10,10 +10,6 @@ sidebar rows. This patch adds the seat (`sidebar.projects`) to dsh's
 `ui-sidebar` package. Once the seat exists, the plugin uses it by itself.
 Nothing in the plugin needs to change.
 
-There is a second, independent patch for the new chat screen. See
-[Patch 2: full input for project chats](#patch-2-full-input-for-project-chats)
-at the end. Apply whichever the user wants; most want both.
-
 Follow the steps in order. Stop and report to the user if a step fails.
 
 ## What the patch changes
@@ -110,43 +106,11 @@ pnpm --filter @deepseek-ai/dsh-client-ui-sidebar run bundle
 
 Then restart dsh. deep-projects goes back to plain sidebar rows.
 
-## Patch 2: full input for project chats
-
-`ui-conversation-cwd-hero.patch` changes 3 lines in
-`packages/client/ui-conversation/src/client/skeleton/ConversationContent.tsx`.
-
-**Why:** project chats run in the project folder but belong to no workspace.
-Stock dsh locks the new chat input for such a chat ("Choose a workspace to
-start"). Without this patch, deep-projects shows its own simple text box for
-the first message (no model picker, no attachments). With it, the user gets
-dsh's normal input. The plugin notices the patch by itself on each page load.
-
-Same flow as above, with `$PATCH2` the full path to
-`ui-conversation-cwd-hero.patch` (or download
-<https://raw.githubusercontent.com/JoblessJoe/deep-projects/main/patches/ui-conversation-cwd-hero.patch>):
-
-```bash
-cd "$DSH"
-git apply --check "$PATCH2"            # no output = fits
-git apply "$PATCH2"
-pnpm --filter @deepseek-ai/dsh-client-ui-conversation run bundle
-```
-
-- `git apply --check --reverse "$PATCH2"` succeeding means it is already applied.
-- If it does not fit, make the change by hand: in the `storedChipTitle`
-  expression, drop the `workspaces.phase === 'ready' ||` condition so the cwd
-  folder name is used whenever no workspace owns the chat.
-- This is a client-only change: no dsh restart needed. Ask the user to reload
-  the browser tab, pick a project with the **Project** chip on the new chat
-  screen, and check that the normal input is usable.
-- Undo: `git apply --reverse "$PATCH2"`, rebuild the same package, reload.
-
 ## Notes for the agent
 
-- A dsh update that replaces `packages/client/ui-sidebar` or
-  `packages/client/ui-conversation` removes the matching patch. Re-apply it
-  after updating, using the same steps.
-- Do not change the plugin to make a patch "work". The plugin checks for both
+- A dsh update that replaces `packages/client/ui-sidebar` removes the patch.
+  Re-apply it after updating, using the same steps.
+- Do not change the plugin to make the patch "work". The plugin checks for it
   on load and picks the right view.
 - Report back to the user in a few lines: whether the patch was applied, rebuilt,
   and whether the restart is done or still up to them.

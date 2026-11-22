@@ -106,9 +106,7 @@ npx @deepseek-ai/dsh plugin --profile web add file:/path/to/deep-projects
 
 On stock dsh, pinned projects show up as plain sidebar rows that open the project. dsh has no plugin seat yet for a block between the panel rows and the workspace list, so the expandable version (arrow, chats underneath, "…" menu right in the sidebar) needs a small `ui-sidebar` patch: [`patches/ui-sidebar-projects-seat.patch`](https://github.com/JoblessJoe/deep-projects/blob/main/patches/ui-sidebar-projects-seat.patch). With it applied, the plugin switches to that view by itself. Everything else works without it.
 
-A second small patch, [`patches/ui-conversation-cwd-hero.patch`](https://github.com/JoblessJoe/deep-projects/blob/main/patches/ui-conversation-cwd-hero.patch), gives project chats dsh's full input on the new chat screen. Stock dsh locks that input for chats outside a workspace, so without the patch the plugin shows its own simple box for the first message. I've [asked dsh](https://github.com/deepseek-ai/deepseek-harness/discussions/14029) to drop the lock.
-
-**Let your agent do it:** give your coding agent [`patches/AGENT-INSTRUCTIONS.md`](https://github.com/JoblessJoe/deep-projects/blob/main/patches/AGENT-INSTRUCTIONS.md). It checks your dsh version, applies the patches, rebuilds the changed packages and tells you when to restart. The patch needs a dsh source checkout; it can't be applied to an npm-installed dsh.
+**Let your agent do it:** give your coding agent [`patches/AGENT-INSTRUCTIONS.md`](https://github.com/JoblessJoe/deep-projects/blob/main/patches/AGENT-INSTRUCTIONS.md). It checks your dsh version, applies the patch, rebuilds the changed package and tells you when to restart. The patch needs a dsh source checkout; it can't be applied to an npm-installed dsh.
 
 ## Develop
 
