@@ -18,6 +18,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore, useCallback } from 'react'
 import type { ReactNode, CSSProperties, DragEvent } from 'react'
+import { createRoot } from 'react-dom/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -260,7 +261,9 @@ const CSS = `
 }
 @media (hover: none) { .dshpx-lead-arrow { display: inline-flex; } .dshpx-lead-folder { visibility: hidden; } }
 
-/* ---- sidebar group (sidebar.projects seat): mirrors dsh workspace rows ---- */
+/* ---- sidebar group (own seat above the workspace list): mirrors dsh workspace rows ---- */
+.dshpx-seat { flex: none; }
+:is([class$="_collapsed"], [class*="_collapsed "]) .dshpx-seat { display: none; }
 .dshpx-side { display: flex; flex-direction: column; margin: 4px 0 8px; }
 .dshpx-side-row {
   display: flex; align-items: center; gap: var(--dsh-sidebar-label-gap, 10px); width: 100%; box-sizing: border-box;
@@ -567,18 +570,30 @@ function ProjectsPanelIcon({ size }: PropsRuntime<'sidebar.panellist'>): ReactNo
 // ---------------------------------------------------------------------------
 // Panel: 2 panes desktop, single pane narrow (tree ⇄ detail with back button)
 // ---------------------------------------------------------------------------
-function forcedFallback(): boolean {
-  try { return localStorage.getItem('deep-projects:fallback') === '1' } catch { return false }
+// dsh has no plugin seat between the panel rows and the workspace list, so the
+// plugin mounts its own React root right above dsh's workspace region.
+// ponytail: keyed to dsh's CSS-module class names (regionArea, collapsed). If a
+// dsh update renames them, the seat never mounts and pinned projects fall back
+// to plain panel rows.
+let seatMounted = false
+function mountSidebarSeat(): () => void {
+  const host = document.createElement('div')
+  host.className = 'dshpx-seat'
+  const root = createRoot(host)
+  root.render(<ProjectsSidebarGroup />)
+  const place = (): void => {
+    const region = document.querySelector('[class$="_regionArea"], [class*="_regionArea "]')
+    if (!region || host.nextElementSibling === region) return
+    region.before(host)
+    if (!seatMounted) { seatMounted = true; notifyChanged() }
+  }
+  place()
+  const mo = new MutationObserver(place)
+  mo.observe(document.body, { childList: true, subtree: true })
+  return () => { mo.disconnect(); root.unmount(); host.remove(); seatMounted = false }
 }
 
-/** True on stock dsh (no `sidebar.projects` seat), or when forced for testing
- *  with localStorage['deep-projects:fallback'] = '1'. */
-function useFallbackRows(ctx: ClientContext): boolean {
-  try { if (localStorage.getItem('deep-projects:fallback') === '1') return true } catch { /* no storage */ }
-  return !(ctx.slots as any).spec?.('sidebar.projects')
-}
-
-/** Main panel behind a pinned-project row on stock dsh: the Projects page, opened on that project. */
+/** Main panel behind a fallback pinned-project row: the Projects page, opened on that project. */
 function PinnedProjectPanel({ slug }: { slug: string }): ReactNode {
   useEffect(() => { select(slug) }, [slug])
   return <ProjectsPanel />
@@ -781,11 +796,11 @@ function TreePane({ t, allSessions }: { t: T; allSessions: SessionRow[] }): Reac
 
 // ---------------------------------------------------------------------------
 // Sidebar group: pinned projects in the sidebar column.
-// Registered into the `sidebar.projects` seat (host slot, ui-sidebar):
+// Mounted by mountSidebarSeat right above dsh's workspace list:
 // sits between the panel buttons and the session list. Row click opens the
 // project page; the arrow (shown on hover) expands its chats. Only pinned projects appear — pin a project to list it here.
 // ---------------------------------------------------------------------------
-function ProjectsSidebarGroup({ wide }: { wide: boolean }): ReactNode {
+function ProjectsSidebarGroup(): ReactNode {
   const [rows, setRows] = useState<ProjectRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
@@ -823,7 +838,7 @@ function ProjectsSidebarGroup({ wide }: { wide: boolean }): ReactNode {
     [snapshot],
   )
 
-  if (!wide || !t || forcedFallback()) return null
+  if (!t) return null
   if (error) return <span style={{ padding: '2px 8px', fontSize: 12, opacity: 0.7 }} title={t('error.generic')}>⚠</span>
   if (rows === null) return null
   if (rows.length === 0) return null
@@ -1602,20 +1617,13 @@ export function apply(ctx: ClientContext): void {
     )
   }, 'deep-projects: sidebar')
 
-  // Pinned projects rendered as a collapsible group directly in the sidebar
-  // column — between the panel buttons and the session list — via the
-  // ui-sidebar `sidebar.projects` seat.
-  ctx.effect(() => {
-    ctx.slots.inject('sidebar.projects', () =>
-      ctx.slots.register({ name: 'sidebar.projects', locale: 'projects' }, ProjectsSidebarGroup),
-    )
-  }, 'deep-projects: sidebar projects')
+  // Pinned projects as a collapsible group between the panel rows and the
+  // workspace list (see mountSidebarSeat).
+  ctx.effect(mountSidebarSeat, 'deep-projects: sidebar projects')
 
-  // Stock dsh has no `sidebar.projects` seat (it comes from a small proposed
-  // ui-sidebar patch). There, each pinned project becomes a plain panel row
-  // under "Projects" that opens its project page. Same pins, no chat tree.
+  // Until the sidebar seat mounts (or if it never can), each pinned project is a
+  // plain panel row under "Projects" that opens its project page. No chat tree.
   ctx.effect(() => ctx.slots.inject('sidebar.panellist', () => {
-    if (!useFallbackRows(ctx)) return () => {}
     let disposers: Array<() => void> = []
     let live = true
     const clear = () => { for (const off of disposers) off(); disposers = [] }
@@ -1623,6 +1631,7 @@ export function apply(ctx: ClientContext): void {
       getJson('list').then((d) => {
         if (!live) return
         clear()
+        if (seatMounted) return
         const pinned: ProjectRow[] = (Array.isArray(d?.projects) ? d.projects : []).filter((p: ProjectRow) => p.starred && !p.archived)
         pinned.forEach((p, i) => {
           const id = (PANEL_ID + ':' + p.slug) as MainPanelId

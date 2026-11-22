@@ -43,6 +43,7 @@ Then restart your dsh web server and reload the tab. **Projects** appears in the
 - **"…" menus** that match dsh's: open, new chat, edit, pin, archive, delete. Chat rows get dsh's usual chat menu.
 - **Edit in place**: name, description and goal.
 - **Archive**: hide finished projects without deleting anything. Restore any time.
+- **Project picker** on the new chat screen: start a chat in any project, or jump to a dsh workspace.
 - **Project tab** in the right sidebar of every chat that belongs to a project, plus a folder button in the chat header.
 - **8 agent tools**, so agents can read and maintain projects themselves (see below).
 - English and Chinese, light and dark theme, works on narrow screens. No runtime dependencies.
@@ -102,11 +103,12 @@ npx @deepseek-ai/dsh plugin --profile web add file:/path/to/deep-projects
 
 **Requirements**: the dsh web GUI, dsh 0.2.2 or newer (`engines.dsh`: `>=0.2.2-rc.1 <0.4.0-0`), Node 20+.
 
-### Sidebar chat tree (optional)
+### No dsh patches needed
 
-On stock dsh, pinned projects show up as plain sidebar rows that open the project. dsh has no plugin seat yet for a block between the panel rows and the workspace list, so the expandable version (arrow, chats underneath, "…" menu right in the sidebar) needs a small `ui-sidebar` patch: [`patches/ui-sidebar-projects-seat.patch`](https://github.com/JoblessJoe/deep-projects/blob/main/patches/ui-sidebar-projects-seat.patch). With it applied, the plugin switches to that view by itself. Everything else works without it.
+The plugin works on stock dsh. Two spots have no plugin seat, so it brings its own:
 
-**Let your agent do it:** give your coding agent [`patches/AGENT-INSTRUCTIONS.md`](https://github.com/JoblessJoe/deep-projects/blob/main/patches/AGENT-INSTRUCTIONS.md). It checks your dsh version, applies the patch, rebuilds the changed package and tells you when to restart. The patch needs a dsh source checkout; it can't be applied to an npm-installed dsh.
+- **Sidebar tree**: mounted between the panel rows and the workspace list. If a dsh update changes the sidebar's layout, pinned projects fall back to plain sidebar rows that open the project.
+- **First message of a project chat**: dsh locks its input for chats outside a workspace, so the plugin shows its own input box for that first message (no model picker or attachments). dsh's full input takes over after that.
 
 ## Develop
 
