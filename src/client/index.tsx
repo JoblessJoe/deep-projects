@@ -764,15 +764,63 @@ function ProjectsGrid({ t, allSessions }: { t: T; allSessions: SessionRow[] }): 
 }
 
 /** New chat in the project folder, opened, with the first message queued. */
-async function sendProjectChat(cwd: string, text: string): Promise<boolean> {
+async function sendProjectChat(cwd: string, text: string, draftId: string | null): Promise<boolean> {
   const sessions = appCtx!.get('sessions') as any
-  const id: string = await sessions.create({ cwd })
+  const id: string = draftId ?? await sessions.create({ cwd })
   openChat(id)
   const r = await sessions.using(id, { source: 'controllerOperation' }, async (ref: any) => {
     const b = await ref.ready
     return b.session.prompt([{ type: 'text', text }], 'queue')
   }).catch(() => null)
   return !!r?.ok
+}
+
+/**
+ * dsh's model choice belongs to a session, so the project composer keeps one
+ * empty draft chat in the project folder: reuse a blank one there, else
+ * create it. Sending goes into this draft; blank chats stay out of "Recent".
+ */
+function useDraftSession(cwd: string | undefined): string | null {
+  const [id, setId] = useState<string | null>(null)
+  useEffect(() => {
+    setId(null)
+    if (!cwd) return
+    let live = true
+    const rows = Object.values(appCtx!.sessions.list.getSnapshot().byId) as SessionRow[]
+    const blank = rows.find(r => r.blank && r.origin !== 'subagent' && cwdOf(r) === cwd)
+    if (blank) setId(blank.id)
+    else void (appCtx!.get('sessions') as any).create({ cwd }).then((nid: string) => { if (live) setId(nid) }).catch(() => {})
+    return () => { live = false }
+  }, [cwd])
+  return id
+}
+
+/**
+ * dsh's own composer model picker (the `conversation.input.model` seat),
+ * rendered for the draft session. Hidden if dsh has no such seat.
+ * ponytail: renders the slot entry's component directly; if dsh changes the
+ * seat's props, the picker disappears and chats use dsh's default model.
+ */
+function ModelPicker({ sessionId }: { sessionId: string }): ReactNode {
+  // dsh's picker needs the session's scope, so hold it open while shown.
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    setReady(false)
+    let ref: { ready: Promise<unknown>; release(): void } | undefined
+    try { ref = (appCtx!.sessions as any).retain(sessionId, { source: 'controllerOperation' }) } catch { return }
+    let live = true
+    ref!.ready.then(() => { if (live) setReady(true) }).catch(() => {})
+    return () => { live = false; ref?.release() }
+  }, [sessionId])
+  const entry = (appCtx!.slots as any).entriesOfSlot?.('conversation.input.model')?.[0] as
+    { component: (p: any) => ReactNode; inject?: (id: string) => Record<string, unknown> } | undefined
+  const injected = useMemo(() => {
+    if (!ready) return undefined
+    try { return entry?.inject?.(sessionId) } catch { return undefined }
+  }, [entry, sessionId, ready])
+  if (!entry || !injected) return null
+  const Picker = entry.component
+  return <Picker locked={false} {...injected} t={appCtx!.locale.bind('model' as any)} renderSlot={(_n: string, _p: unknown, o?: { fallback?: ReactNode }) => o?.fallback ?? null} />
 }
 
 // ---------------------------------------------------------------------------
@@ -787,6 +835,7 @@ function ProjectPage({ t, slug, allSessions }: { t: T; slug: string; allSessions
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [sendErr, setSendErr] = useState(false)
+  const draftId = useDraftSession(detail?.path)
 
   const load = useCallback(() => {
     setError(null)
@@ -811,7 +860,7 @@ function ProjectPage({ t, slug, allSessions }: { t: T; slug: string; allSessions
     const body = text.trim()
     if (!body || !detail?.path || sending) return
     setSending(true); setSendErr(false)
-    const ok = await sendProjectChat(detail.path, body).catch(() => false)
+    const ok = await sendProjectChat(detail.path, body, draftId).catch(() => false)
     setSending(false)
     if (ok) setText(''); else setSendErr(true)
   }
@@ -866,6 +915,7 @@ function ProjectPage({ t, slug, allSessions }: { t: T; slug: string; allSessions
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send() } }}
                 />
                 <div className="dshpx-composer-foot">
+                  {draftId && <ModelPicker sessionId={draftId} />}
                   {sendErr && <span className="dshpx-err">{t('page.sendFailed')}</span>}
                   <button type="button" className="dshpx-send" title={t('page.send')} aria-label={t('page.send')} disabled={!text.trim() || sending} onClick={() => void send()}>
                     <SendIcon size={16} />
