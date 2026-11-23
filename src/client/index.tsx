@@ -385,7 +385,15 @@ const CSS = `
 .dshpx-side-item-action { margin-left: auto; flex: none; font-size: 13.5px; color: var(--dsw-alias-label-secondary); }
 .dshpx-side-goal { margin: 14px 4px 0; font-size: 13px; line-height: 1.5; color: var(--dsw-alias-label-secondary); white-space: pre-wrap; }
 .dshpx-proj-side .dshpx-path { margin: 10px 4px 0; }
-[class*="_itemWrap"]:has(> [class*="_submenu"])::after { content: ''; position: absolute; top: 0; bottom: 0; left: 100%; width: 12px; }
+/* Safe triangle: dsh closes a submenu as soon as the pointer leaves its row,
+   and the submenu grows upward, so a diagonal move crossed the rows above.
+   This invisible part of the row spans from the pointer's spot on the row up
+   to the submenu's full height (sizes + pointer x set by the submenu-fit effect). */
+[class*="_itemWrap"]:has(> [class*="_submenu"])::after {
+  content: ''; position: absolute; left: var(--dshpx-tri-x, 50%); right: -12px; bottom: 0;
+  height: var(--dshpx-tri-h, 100%);
+  clip-path: polygon(0 100%, 0 calc(100% - var(--dshpx-row-h, 100%)), 100% 0, 100% 100%);
+}
 .dshpx-back { margin-right: 4px; }
 .dshpx-modal { width: min(640px, 92vw); max-width: none; }
 .dshpx-modal .dshpx-card { border: none; padding: 0; }
@@ -1802,15 +1810,33 @@ function applyInner(ctx: ClientContext): void {
   ctx.effect(() => {
     const fit = (): void => {
       for (const el of document.querySelectorAll<HTMLElement>('[role="menu"][class*="_submenu"]')) {
-        const r = el.getBoundingClientRect()
-        if (r.top >= 12) continue
-        el.style.maxHeight = Math.max(120, r.bottom - 12) + 'px'
-        el.style.overflowY = 'auto'
+        let r = el.getBoundingClientRect()
+        if (r.top < 12) {
+          el.style.maxHeight = Math.max(120, r.bottom - 12) + 'px'
+          el.style.overflowY = 'auto'
+          r = el.getBoundingClientRect()
+        }
+        const wrap = el.parentElement
+        if (!wrap) continue
+        const w = wrap.getBoundingClientRect()
+        wrap.style.setProperty('--dshpx-row-h', w.height + 'px')
+        wrap.style.setProperty('--dshpx-tri-h', Math.max(w.height, w.bottom - r.top) + 'px')
       }
     }
+    // Triangle apex follows the pointer while it is on the submenu's own row.
+    const track = (e: PointerEvent): void => {
+      // The triangle itself is part of the row's wrapper, so match the wrapper
+      // and only move the apex while the pointer is inside the row's own box.
+      const wrap = (e.target as Element | null)?.closest?.<HTMLElement>('[class*="_itemWrap"]')
+      if (!wrap?.querySelector(':scope > [class*="_submenu"]')) return
+      const r = wrap.getBoundingClientRect()
+      if (e.clientY < r.top || e.clientY > r.bottom || e.clientX > r.right) return
+      wrap.style.setProperty('--dshpx-tri-x', Math.max(0, e.clientX - r.left) + 'px')
+    }
+    document.addEventListener('pointermove', track, true)
     const mo = new MutationObserver(() => { requestAnimationFrame(fit) })
     mo.observe(document.body, { childList: true, subtree: true })
-    return () => { mo.disconnect() }
+    return () => { mo.disconnect(); document.removeEventListener('pointermove', track, true) }
   }, 'deep-projects: submenu fit')
   const loadTargets = () => { getJson('list').then((r) => { moveTargets = r?.ok ? (r.projects ?? []) : [] }).catch(() => {}) }
   loadTargets()
