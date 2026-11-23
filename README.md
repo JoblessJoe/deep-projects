@@ -20,12 +20,20 @@ npx @deepseek-ai/dsh plugin --profile web add deep-projects
 Then restart your dsh web server and reload the tab. **Projects** appears in the sidebar. Full details under [Install](#install).
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/JoblessJoe/deep-projects/main/.github/assets/projects-page.png" alt="The Projects page: project list on the left; goal, memory, knowledge files and instructions on the right" width="100%">
+  <img src="https://raw.githubusercontent.com/JoblessJoe/deep-projects/main/.github/assets/projects-page.png" alt="The Projects page: a two-column grid of project tiles with pinned projects first, tabs for Your projects and Archived, and a New project button" width="100%">
+  <br><sub>All projects as tiles. Pinned first, then by last activity.</sub>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/JoblessJoe/deep-projects/main/.github/assets/sidebar.png" alt="Pinned projects in the dsh sidebar with their … menu open" width="430">
-  <br><sub>Pinned projects sit in the sidebar. The "…" menu opens, edits, pins, archives or deletes a project.</sub>
+  <img src="https://raw.githubusercontent.com/JoblessJoe/deep-projects/main/.github/assets/project-page.png" alt="A project page: title, a box to start a new chat, the project's recent chats, and rows for goal, instructions, knowledge and memory on the right" width="100%">
+  <br><sub>One page per project: type to start a chat right away, reopen recent chats, edit goal, instructions, knowledge and memory.</sub>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/JoblessJoe/deep-projects/main/.github/assets/sidebar.png" alt="Pinned projects in the dsh sidebar, one expanded to show its chats" width="280">
+  &nbsp;&nbsp;
+  <img src="https://raw.githubusercontent.com/JoblessJoe/deep-projects/main/.github/assets/picker.png" alt="dsh's new chat picker listing pinned projects, all projects and workspaces, with New project and Add workspace entries" width="277">
+  <br><sub>Left: pinned projects in the sidebar. Right: one picker for projects and workspaces on dsh's new chat screen.</sub>
 </p>
 
 ## What's in a room
@@ -34,16 +42,17 @@ Then restart your dsh web server and reload the tab. **Projects** appears in the
 - **Memory**: facts, decisions and preferences, one bullet each. You add and edit them; agents add new ones as they learn and fix stale ones. Every chat sees it.
 - **Custom instructions**: the project's `AGENTS.md`, edited in place.
 - **Knowledge files**: drag and drop docs, specs and references for the agent to read.
-- **Chats**: every chat started from the project runs in its folder and is listed under it.
+- **Chats**: every chat started from the project runs in its folder and shows up under "Recent" on the project page.
 
 ## Features
 
-- **Projects page** with a filterable project list and one page per project.
+- **Projects page** in the style of Claude Desktop: a grid of project tiles with search, sort, and tabs for active and archived projects. Pinned projects come first.
+- **Project page**: type into the box to start a chat in the project right away. Below it, the project's recent chats. On the right, goal, instructions, knowledge and memory, each opening an editor.
 - **Pinned projects in the sidebar**, styled like dsh's own rows. Click to open, or use the arrow to show the project's chats.
 - **"…" menus** that match dsh's: open, new chat, edit, pin, archive, delete. Chat rows get dsh's usual chat menu.
-- **Edit in place**: name, description and goal.
+- **Move to project** on every chat's "…" menu. The chat's current project has a check mark.
 - **Archive**: hide finished projects without deleting anything. Restore any time.
-- **One picker for projects and workspaces** on dsh's new chat screen, in place of its workspace chip. Projects get a goal icon, workspaces a folder.
+- **One picker for projects and workspaces** on dsh's new chat screen, in place of its workspace chip. Pinned projects first, then all projects, then workspaces, plus "New project" and "Add workspace…".
 - **Project tab** in the right sidebar of every chat that belongs to a project, plus a folder button in the chat header.
 - **8 agent tools**, so agents can read and maintain projects themselves (see below).
 - English and Chinese, light and dark theme, works on narrow screens. No runtime dependencies.
