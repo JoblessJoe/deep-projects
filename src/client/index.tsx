@@ -42,6 +42,8 @@ import {
   IconChevronDownOutlineRegular as ChevronIcon,
   IconGoalOutlineRegular as ProjectIcon,
   Menu,
+  Modal,
+  Button,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only pulls (stripped by esbuild): augment cordis Context with the
@@ -343,6 +345,7 @@ const CSS = `
 .dshpx-hero-chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dshpx-hero-chip svg { flex: none; fill: currentColor; }
 .dshpx-hero-chip .dshpx-hero-chevron { color: var(--dsw-alias-label-caption); }
+.dshpx-danger-btn { --dsw-alias-button-primary-fill: var(--dsw-alias-state-error-primary); --dsw-alias-button-primary-hover: var(--dsw-alias-state-error-primary); }
 .dshpx-header-btn {
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent; border: none; border-radius: 6px; padding: 4px; cursor: pointer;
@@ -1105,6 +1108,32 @@ function wrapWorkspacePicker(Stock: (p: any) => ReactNode): (p: any) => ReactNod
   }
 }
 
+/** dsh-style delete confirmation (same Modal + red primary button as dsh's
+ *  plugin-uninstall dialog), in its own short-lived React root. */
+function confirmDelete(name: string): Promise<boolean> {
+  const t = appCtx!.locale.bind('projects')
+  const host = document.body.appendChild(document.createElement('div'))
+  const root = createRoot(host)
+  return new Promise((resolve) => {
+    const done = (ok: boolean): void => { root.unmount(); host.remove(); resolve(ok) }
+    root.render(
+      <Modal
+        open
+        onClose={() => { done(false) }}
+        title={t('delete.title').replace('{name}', name)}
+        closeLabel={t('delete.close')}
+        description={t('detail.delete.confirm')}
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => { done(false) }}>{t('create.cancel')}</Button>
+            <Button variant="primary" className="dshpx-danger-btn" autoFocus onClick={() => { done(true) }}>{t('detail.delete')}</Button>
+          </>
+        )}
+      />,
+    )
+  })
+}
+
 /** Wraps dsh's input bar: a blank project chat gets the normal, usable input. */
 function wrapComposerBar(Stock: (p: any) => ReactNode): (p: any) => ReactNode {
   return function DeepProjectsComposerBar(props: any): ReactNode {
@@ -1212,7 +1241,7 @@ function ProjectContent({ t, slug, compact }: { t: T; slug: string; compact?: bo
   }
   const remove = async () => {
     if (!detail) return
-    if (!confirm(t('detail.delete.confirm'))) return
+    if (!await confirmDelete(detail.name)) return
     await postJson('delete?slug=' + encodeURIComponent(detail.slug))
     select(null)
     notifyChanged()
@@ -1594,7 +1623,7 @@ export function apply(ctx: ClientContext): void {
         run: async () => { await postJson('archive?slug=' + encodeURIComponent(p.slug), { archived: !p.archived }); notifyChanged() } },
       { id: 'delete', label: t('detail.delete'), icon: { key: 'deep-projects.delete' }, danger: true, separatorBefore: true,
         run: async () => {
-          if (!confirm(t('detail.delete.confirm'))) return
+          if (!await confirmDelete(p.name)) return
           await postJson('delete?slug=' + encodeURIComponent(p.slug))
           if (selectedSlug === p.slug) select(null)
           notifyChanged()
