@@ -568,7 +568,7 @@ function MoreButton({ label, onClick }: { label: string; onClick: (e: any) => vo
 function LeadSlot({ open, onToggle, label }: { open: boolean; onToggle: () => void; label: string }): ReactNode {
   return (
     <span className="dshpx-lead">
-      <span className="dshpx-lead-folder" aria-hidden="true">{open ? <FolderOpenIcon size={16} /> : <FolderClosedIcon size={16} />}</span>
+      <span className="dshpx-lead-folder" aria-hidden="true"><ProjectIcon size={16} /></span>
       <button
         type="button" className="dshpx-lead-arrow" aria-label={label} aria-expanded={open}
         onClick={(e) => { e.stopPropagation(); onToggle() }}
@@ -581,7 +581,7 @@ function LeadSlot({ open, onToggle, label }: { open: boolean; onToggle: () => vo
 }
 
 function ProjectsPanelIcon({ size }: PropsRuntime<'sidebar.panellist'>): ReactNode {
-  return <FolderClosedIcon size={size} />
+  return <ProjectIcon size={size} />
 }
 
 // ---------------------------------------------------------------------------
