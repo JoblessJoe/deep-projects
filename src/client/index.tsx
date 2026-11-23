@@ -40,6 +40,9 @@ import {
   IconTrashOutlineRegular as TrashIcon,
   IconDeliverDocRegular as DocIcon,
   IconChevronDownOutlineRegular as ChevronIcon,
+  IconGoalOutlineRegular as ProjectIcon,
+  Menu,
+  type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only pulls (stripped by esbuild): augment cordis Context with the
 // members we use (sessions, layout) + slot/locale types.
@@ -75,7 +78,7 @@ const CSS = `
   --dshpx-hover: var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-skeleton));
   font-family: inherit; color: var(--dsw-alias-label-primary);
 }
-.dshpx-side, .dshpx-tabpane, .dshpx-stock-composer { --dshpx-line: color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent);
+.dshpx-side, .dshpx-tabpane { --dshpx-line: color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent);
   --dshpx-fill: var(--dsw-alias-bg-skeleton); --dshpx-hover: var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-skeleton)); }
 .dshpx-split { display: flex; width: 100%; height: 100%; min-height: 0; }
 .dshpx-root svg, .dshpx-side svg, .dshpx-tabpane svg, .dshpx-header-btn svg { fill: currentColor; }
@@ -327,29 +330,19 @@ const CSS = `
 .dshpx-tabpane .dshpx-grid { gap: 14px; }
 .dshpx-tabpane .dshpx-h1 { font-size: 20px; }
 .dshpx-tabpane .dshpx-card { padding: 14px 16px; }
-/* Seat the hero options (our Project chip) right after the workspace chip. */
-:has(> [data-slot="conversation.hero.options"] .dshpx-hero-chip) { order: 1; margin-left: 0 !important; }
-[data-slot="conversation.hero.agentPreset"] > * { order: 2; }
+/* New-chat hero: our picker chip replaces dsh's workspace chip and takes its seat.
+   Styles copy dsh's chip (HeroShell .workspace). */
+[class$="_heroWorkspaceRow"]:has(.dshpx-hero-chip) > button[aria-haspopup="menu"]:not(.dshpx-hero-chip) { display: none; }
+:has(> [data-slot="conversation.hero.options"] .dshpx-hero-chip) { order: -1; margin-left: 0 !important; }
 .dshpx-hero-chip {
-  display: inline-flex; align-items: center; gap: 4px; max-width: 200px;
-  background: transparent; border: none; border-radius: 6px; padding: 4px 6px; cursor: pointer;
-  font: inherit; font-size: 13px; color: var(--dsw-alias-label-primary); transition: background 120ms ease, color 120ms ease;
+  display: inline-flex; align-items: center; gap: 4px; max-width: min(100%, 360px); min-height: 28px; padding: 0 8px;
+  border: none; border-radius: var(--dsw-radius-sm); background: transparent; cursor: pointer;
+  color: var(--dsw-alias-label-primary); font: inherit; font-size: 13px; line-height: 20px; font-weight: 500;
 }
-.dshpx-hero-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dshpx-hero-chip:hover { background: var(--dsw-alias-interactive-bg-hover); }
-.dshpx-hero-chip svg { fill: currentColor; flex: none; }
-.dshpx-stock-composer {
-  display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; width: 100%; max-width: 720px; margin: 0 auto;
-  border: 1px solid var(--dshpx-line); border-radius: 16px; padding: 12px 14px; background: var(--dsw-alias-bg-base);
-}
-.dshpx-stock-head { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dsw-alias-label-caption); }
-.dshpx-stock-head svg { fill: currentColor; }
-.dshpx-stock-composer textarea {
-  resize: none; border: none; outline: none; background: transparent; font: inherit; font-size: 14px;
-  color: var(--dsw-alias-label-primary);
-}
-.dshpx-stock-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--dsw-alias-label-tertiary); }
-.dshpx-stock-err { color: var(--dsw-alias-state-error-primary); }
+.dshpx-hero-chip[aria-expanded="true"], .dshpx-hero-chip:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.dshpx-hero-chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dshpx-hero-chip svg { flex: none; fill: currentColor; }
+.dshpx-hero-chip .dshpx-hero-chevron { color: var(--dsw-alias-label-caption); }
 .dshpx-header-btn {
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent; border: none; border-radius: 6px; padding: 4px; cursor: pointer;
@@ -984,85 +977,160 @@ function DetailPane({ t, slug }: { t: T; slug: string | null }): ReactNode {
 // utilities row, shown only when the session's cwd maps to a project. Clicking
 // opens the project's info tab (memories, instructions, knowledge).
 // ---------------------------------------------------------------------------
-// New-chat hero: "Project ▾" chip. Picking a project opens a fresh chat whose
-// cwd is the project folder (projects stay folders, not dsh workspaces).
-function HeroProjectPicker(props: PropsRuntime<'conversation.hero.options'>): ReactNode {
-  const cwd = props.useSessions(s => cwdOf(s.byId[props.sessionId] as SessionRow | undefined))
-  return <ProjectChip cwd={cwd} t={props.t} />
+// New-chat hero: one picker for dsh workspaces and projects, in dsh's own UI.
+// - dsh's workspace chip is hidden (CSS); HeroPickerChip takes its place.
+// - The menu lives inside dsh's `conversation.hero.workspace` slot (its
+//   component is wrapped), so workspace picks keep dsh's own flow: draft
+//   carry-over and the "Add workspace…" folder dialog.
+// - dsh greys out its input for a chat outside any workspace, which is every
+//   project chat; the wrapped `conversation.composer.bar` lifts that lock.
+// ponytail: wrapping swaps the component on dsh's registered slot entry. If a
+// dsh update changes that, project chats show dsh's greyed-out input again.
+// ---------------------------------------------------------------------------
+const heroMenu = { open: false, anchor: null as HTMLElement | null, selected: undefined as string | undefined, subs: new Set<() => void>() }
+function setHeroMenu(open: boolean, anchor?: HTMLElement | null, selected?: string): void {
+  heroMenu.open = open
+  if (anchor !== undefined) heroMenu.anchor = anchor
+  if (selected !== undefined || open) heroMenu.selected = selected
+  for (const fn of heroMenu.subs) fn()
+}
+function useHeroMenuOpen(): boolean {
+  return useSyncExternalStore((cb) => { heroMenu.subs.add(cb); return () => { heroMenu.subs.delete(cb) } }, () => heroMenu.open)
 }
 
-/** "Project ▾" chip; its menu lists projects and dsh workspaces. */
-function ProjectChip({ cwd, t }: { cwd: string | undefined; t: (k: string) => string }): ReactNode {
+/** Live, unarchived projects that have a folder. */
+function useLiveProjects(): ProjectRow[] {
   const [rows, setRows] = useState<ProjectRow[]>([])
   const load = useCallback(() => {
     getJson('list').then((r) => { setRows(r?.ok ? (r.projects ?? []) : []) }).catch(() => { setRows([]) })
   }, [])
   useEffect(load, [load])
   useOnChanged(load)
-  const live = rows.filter(r => r.path && !r.archived)
-  if (live.length === 0) return null
-  const current = live.find(r => cwd === r.path || (cwd ?? '').startsWith(r.path + '/'))
+  return useMemo(() => rows.filter(r => r.path && !r.archived)
+    .sort((a, b) => Number(!!b.starred) - Number(!!a.starred) || a.name.localeCompare(b.name)), [rows])
+}
+
+function projectOf(projects: readonly ProjectRow[], cwd: string | undefined): ProjectRow | undefined {
+  return cwd ? projects.find(p => p.path && (cwd === p.path || cwd.startsWith(p.path + '/'))) : undefined
+}
+
+type WorkspaceItem = { workspaceId: string; title: string; sessionIds: readonly string[] }
+function workspaceList(): { phase: string; items: WorkspaceItem[] } | undefined {
+  return (appCtx?.get('workspaces') as any)?.list.getSnapshot()
+}
+
+/** Chip in place of dsh's workspace chip: the chat's project or workspace. */
+function HeroPickerChip(props: PropsRuntime<'conversation.hero.options'>): ReactNode {
+  const { sessionId, useSessions } = props
+  const cwd = useSessions(s => cwdOf(s.byId[sessionId] as SessionRow | undefined))
+  const projects = useLiveProjects()
+  const open = useHeroMenuOpen()
+  const wsList = (appCtx?.get('workspaces') as any)?.list
+  const ws = useSyncExternalStore((cb) => wsList?.subscribe(cb) ?? (() => {}), () => wsList?.getSnapshot())
+  const tc = appCtx!.locale.bind('conversation') as (k: string) => string
+  const project = projectOf(projects, cwd)
+  const workspace = project ? undefined : (ws?.items as WorkspaceItem[] | undefined)?.find(w => w.sessionIds.includes(sessionId))
+  const label = project?.name
+    ?? (workspace ? workspaceTitle(workspace.title, tc('workspace.defaultName')) : tc('hero.chooseWorkspace'))
   return (
     <button
       className="dshpx-hero-chip"
       type="button"
-      data-active={current ? 'true' : undefined}
-      onClick={(e) => { toggleMenu('dsh-project-picker', { projects: live, current: current?.slug }, () => true, pointOf(e)) }}
+      aria-label={tc('hero.chooseWorkspace')}
+      aria-haspopup="menu"
+      aria-expanded={open}
+      onClick={(e) => { setHeroMenu(!open, e.currentTarget, project ? 'p:' + project.slug : workspace?.workspaceId) }}
     >
-      <FolderClosedIcon width={14} height={14} />
-      <span>{current ? current.name : t('hero.project')}</span>
-      <ChevronIcon width={12} height={12} />
+      {project ? <ProjectIcon size={16} /> : workspace ? <FolderOpenIcon size={16} /> : <FolderClosedIcon size={16} />}
+      <span>{label}</span>
+      <ChevronIcon size={12} className="dshpx-hero-chevron" />
     </button>
   )
 }
 
-// Stock dsh locks the new-chat input for a chat outside any workspace, which
-// is every project chat. This composer takeover replaces dsh's whole new-chat
-// hero (stock stays mounted but hidden) and sends the first message itself;
-// once the chat has a message, dsh's own input takes over.
-function selectStockProjectComposer(owner: { sessionId?: string; session?: { blank?: boolean } }): { cwd: string } | null {
-  const sid = owner.sessionId
-  if (!sid || owner.session?.blank !== true || !appCtx) return null
-  const cwd = (appCtx.get('sessions') as any)?.list.getSnapshot().byId[sid]?.cwd as string | undefined
-  const ws = (appCtx.get('workspaces') as any)?.list.getSnapshot()
-  if (!cwd || ws?.phase !== 'ready') return null
-  if (ws.items.some((w: { sessionIds: readonly string[] }) => w.sessionIds.includes(sid))) return null
-  return { cwd }
+function workspaceTitle(title: string, localizedDefault: string): string {
+  return title === 'default-workspace' ? localizedDefault : title
 }
 
-function StockProjectComposer(props: { matched: { cwd: string }; sessionId?: string; t: (k: string) => string }): ReactNode {
-  const { matched, sessionId, t } = props
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const send = async (): Promise<void> => {
-    const body = text.trim()
-    if (!body || !sessionId || busy) return
-    const session = (appCtx?.get('sessions') as any)?.binding(sessionId)?.session
-    if (!session) { setError(t('stock.failed')); return }
-    setBusy(true); setError(null)
-    const r = await session.prompt([{ type: 'text', text: body }], 'queue').catch((e: unknown) => ({ ok: false, error: { message: String(e) } }))
-    setBusy(false)
-    if (r?.ok) setText('')
-    else setError(r?.error?.message ?? t('stock.failed'))
+/** Wraps dsh's workspace picker: one menu with projects and workspaces. */
+function wrapWorkspacePicker(Stock: (p: any) => ReactNode): (p: any) => ReactNode {
+  const empty = new WeakMap<object, object>()
+  return function DeepProjectsPicker(props: any): ReactNode {
+    const ours = useHeroMenuOpen()
+    const [adding, setAdding] = useState(false)
+    const projects = useLiveProjects()
+    const workspaces = props.useWorkspaces((s: { items: WorkspaceItem[] }) => s.items) as WorkspaceItem[]
+    const t = appCtx!.locale.bind('projects')
+    const close = (): void => { setHeroMenu(false); props.onClose() }
+    const items: MenuEntry[] = [
+      ...(projects.length === 0 ? [] : [
+        { type: 'label', id: 'label:projects', text: t('nav') } as const,
+        ...projects.map(p => ({ id: 'p:' + p.slug, label: p.name, icon: <ProjectIcon size={16} /> })),
+      ]),
+      ...(workspaces.length === 0 ? [] : [
+        { type: 'label', id: 'label:workspaces', text: t('hero.workspaces') } as const,
+        ...workspaces.map(w => ({ id: w.workspaceId, label: workspaceTitle(w.title, props.t('workspace.defaultName')), icon: <FolderClosedIcon size={16} /> })),
+      ]),
+    ]
+    const onSelect = (id: string): void => {
+      close()
+      if (id === '::add') setAdding(true)
+      else if (id.startsWith('p:')) { const p = projects.find(x => 'p:' + x.slug === id); if (p?.path) void startProjectChat(p.path) }
+      else props.onPick(id)
+    }
+    // dsh's own picker, fed an empty list, runs only its "Add workspace" flow:
+    // with nothing to list it opens the folder dialog straight away.
+    const emptyWorkspaces = useCallback(<S,>(sel: (s: any) => S): S => props.useWorkspaces((s: object) => {
+      let e = empty.get(s)
+      if (!e) { e = { ...s, items: [], phase: 'ready' }; empty.set(s, e) }
+      return sel(e)
+    }), [props.useWorkspaces])
+    return (
+      <>
+        <Menu
+          open={(props.open || ours) && !adding}
+          anchor={null}
+          items={items}
+          footer={[{ id: '::add', label: props.t('menu.addWorkspace'), icon: <AddIcon size={16} /> }]}
+          selectedId={ours ? heroMenu.selected : props.selectedId}
+          onSelect={onSelect}
+          onClose={close}
+          side="bottom"
+          portal
+          getAnchorRect={() => ((ours ? heroMenu.anchor : props.anchorRef?.current) as HTMLElement | null)?.getBoundingClientRect() ?? null}
+        />
+        <Stock {...props} open={adding} onClose={() => { setAdding(false) }} useWorkspaces={emptyWorkspaces} />
+      </>
+    )
   }
-  return (
-    <div className="dshpx-stock-composer">
-      <div className="dshpx-stock-head"><ProjectChip cwd={matched.cwd} t={t} /></div>
-      <textarea
-        value={text}
-        rows={3}
-        disabled={busy}
-        placeholder={t('stock.placeholder')}
-        onChange={(e) => { setText(e.target.value) }}
-        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send() } }}
-      />
-      <div className="dshpx-stock-foot">
-        {error ? <span className="dshpx-stock-err">{error}</span> : <span>{t('stock.hint')}</span>}
-        <button className="dshpx-btn dshpx-btn-primary dshpx-btn-sm" type="button" disabled={busy || !text.trim()} onClick={() => { void send() }}>{t('stock.send')}</button>
-      </div>
-    </div>
-  )
+}
+
+/** Wraps dsh's input bar: a blank project chat gets the normal, usable input. */
+function wrapComposerBar(Stock: (p: any) => ReactNode): (p: any) => ReactNode {
+  return function DeepProjectsComposerBar(props: any): ReactNode {
+    const sid = props.sessionId as string | undefined
+    if (props.disabled !== true || props.variant !== 'hero' || !sid || !appCtx) return <Stock {...props} />
+    const cwd = (appCtx.get('sessions') as any)?.list.getSnapshot().byId[sid]?.cwd as string | undefined
+    if (!projectOf(moveTargets, cwd) || workspaceList()?.items.some(w => w.sessionIds.includes(sid))) return <Stock {...props} />
+    const { disabled: _d, workspacePickerOpen: _o, onRequestWorkspace: _r, ...rest } = props
+    return <Stock {...rest} placeholder={(appCtx.locale.bind('conversation') as (k: string) => string)('placeholder.hero')} />
+  }
+}
+
+/** Swap the component of dsh's registered entry for `name`; undo on dispose. */
+function wrapStockSlot(ctx: ClientContext, name: string, wrap: (c: any) => any): () => void {
+  let entry: any
+  let original: unknown
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let tries = 0
+  const attempt = (): void => {
+    entry = (ctx.slots as any).entriesOfSlot?.(name)?.[0]
+    if (!entry) { if (++tries < 40) timer = setTimeout(attempt, 250); return }
+    original = entry.component
+    entry.component = wrap(original)
+  }
+  attempt()
+  return () => { clearTimeout(timer); if (entry && original) entry.component = original }
 }
 
 function ProjectHeaderButton(props: PropsRuntime<'conversation.session.header.utilities'>): ReactNode {
@@ -1534,33 +1602,13 @@ export function apply(ctx: ClientContext): void {
     ],
   }), 'deep-projects: project menu')
 
-  ctx.effect(() => (ctx as any).contextMenus.register({
-    id: 'deep-projects.picker', target: 'dsh-project-picker', order: 100,
-    resolve: (v: { projects: ProjectRow[]; current?: string }) => [...v.projects]
-      .sort((a, b) => Number(!!b.starred) - Number(!!a.starred))
-      .map(p => ({
-        id: p.slug, label: p.name, icon: { key: p.slug === v.current ? 'deep-projects.open' : 'deep-projects.newChat' },
-        disabled: p.slug === v.current,
-        run: () => { if (p.path) void startProjectChat(p.path) },
-      }))
-      .concat(((appCtx?.get('workspaces') as any)?.list.getSnapshot().items ?? [])
-        .map((w: { workspaceId: string; title: string }, i: number) => ({
-          id: 'ws:' + w.workspaceId, label: w.title, icon: { key: 'deep-projects.newChat' }, separatorBefore: i === 0,
-          run: () => { void (appCtx?.get('uiWorkspace') as any)?.openWorkspace(w.workspaceId) },
-        }))),
-  }), 'deep-projects: hero picker menu')
-
   ctx.effect(() => {
     ctx.slots.inject('conversation.hero.options', () =>
-      ctx.slots.register({ name: 'conversation.hero.options', id: 'deep-projects.picker', locale: 'projects' } as any, HeroProjectPicker as any),
+      ctx.slots.register({ name: 'conversation.hero.options', id: 'deep-projects.picker', locale: 'projects' } as any, HeroPickerChip as any),
     )
-  }, 'deep-projects: hero picker')
-
-  ctx.effect(() => {
-    ctx.slots.inject('conversation.composer', () =>
-      ctx.slots.register({ name: 'conversation.composer', priority: -5, locale: 'projects', select: selectStockProjectComposer } as any, StockProjectComposer as any),
-    )
-  }, 'deep-projects: stock composer')
+  }, 'deep-projects: hero picker chip')
+  ctx.effect(() => wrapStockSlot(ctx, 'conversation.hero.workspace', wrapWorkspacePicker), 'deep-projects: hero picker menu')
+  ctx.effect(() => wrapStockSlot(ctx, 'conversation.composer.bar', wrapComposerBar), 'deep-projects: project chat input')
 
   // "Move to project" on dsh's own chat "…" menu. dsh changes the chat's
   // working directory; the chat keeps its history and stays in its workspace list.

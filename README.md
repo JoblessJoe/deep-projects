@@ -43,7 +43,7 @@ Then restart your dsh web server and reload the tab. **Projects** appears in the
 - **"…" menus** that match dsh's: open, new chat, edit, pin, archive, delete. Chat rows get dsh's usual chat menu.
 - **Edit in place**: name, description and goal.
 - **Archive**: hide finished projects without deleting anything. Restore any time.
-- **Project picker** on the new chat screen: start a chat in any project, or jump to a dsh workspace.
+- **One picker for projects and workspaces** on dsh's new chat screen, in place of its workspace chip. Projects get a goal icon, workspaces a folder.
 - **Project tab** in the right sidebar of every chat that belongs to a project, plus a folder button in the chat header.
 - **8 agent tools**, so agents can read and maintain projects themselves (see below).
 - English and Chinese, light and dark theme, works on narrow screens. No runtime dependencies.
@@ -105,10 +105,13 @@ npx @deepseek-ai/dsh plugin --profile web add file:/path/to/deep-projects
 
 ### No dsh patches needed
 
-The plugin works on stock dsh. Two spots have no plugin seat, so it brings its own:
+The plugin works on stock dsh. Three spots have no plugin seat, so it adjusts dsh's own UI from the plugin:
 
 - **Sidebar tree**: mounted between the panel rows and the workspace list. If a dsh update changes the sidebar's layout, pinned projects fall back to plain sidebar rows that open the project.
-- **First message of a project chat**: dsh locks its input for chats outside a workspace, so the plugin shows its own input box for that first message (no model picker or attachments). dsh's full input takes over after that.
+- **Project chats use dsh's normal new chat screen.** dsh greys out its input for chats outside a workspace; the plugin lifts that for project chats.
+- **Workspace chip**: replaced by the combined picker. Picking a workspace and "Add workspace…" still run dsh's own flow.
+
+If a dsh update changes these internals, you get dsh's plain behavior back (plain sidebar rows, a greyed-out input in new project chats).
 
 ## Develop
 
