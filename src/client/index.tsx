@@ -1900,4 +1900,42 @@ function applyInner(ctx: ClientContext): void {
       ctx.slots.register({ name: 'main', key: PANEL_ID, locale: 'projects' }, ProjectsPanel),
     )
   }, 'deep-projects: main')
+
+  // Keep the open Projects view (panel + project) across hot reloads and tab
+  // reloads. On teardown dsh drops our panel and falls back to the last chat;
+  // the delayed clear is cancelled by the cleanup, so the stash survives that.
+  ctx.effect(() => {
+    const KEY = 'dshpx.view'
+    const ours = (id: string | null): id is string => !!id && (id === PANEL_ID || id.startsWith(PANEL_ID + ':'))
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let restoring = true
+    const save = (): void => {
+      if (restoring) return
+      const panel = ctx.layout.panelInfo.getSnapshot().activePanelId
+      clearTimeout(timer)
+      try {
+        if (ours(panel)) sessionStorage.setItem(KEY, JSON.stringify({ panel, slug: selectedSlug }))
+        else timer = setTimeout(() => { try { sessionStorage.removeItem(KEY) } catch {} }, 300)
+      } catch {}
+    }
+    let saved: { panel: string; slug: string | null } | null = null
+    try { saved = JSON.parse(sessionStorage.getItem(KEY) ?? 'null') } catch {}
+    let tries = 0
+    const restore = (): void => {
+      if (!saved) { restoring = false; return }
+      try {
+        ctx.layout.selectPanel(saved.panel as MainPanelId)
+        select(saved.slug)
+        restoring = false
+        save()
+      } catch {
+        // Pinned-project panels register a moment later; give up after ~5s.
+        if (++tries < 50) timer = setTimeout(restore, 100); else restoring = false
+      }
+    }
+    timer = setTimeout(restore, 0)
+    const offPanel = ctx.layout.panelInfo.subscribe(save)
+    const offSel = subscribeSelection(save)
+    return () => { clearTimeout(timer); offPanel(); offSel() }
+  }, 'deep-projects: keep view across reloads')
 }
