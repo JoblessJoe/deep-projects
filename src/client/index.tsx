@@ -1718,14 +1718,18 @@ function ErrorBox({ t, message, onRetry }: { t: T; message: string; onRetry: () 
 // ---------------------------------------------------------------------------
 // apply
 // ---------------------------------------------------------------------------
+// dsh's hot reload swallows apply errors; log them so a half-applied plugin is visible.
 export function apply(ctx: ClientContext): void {
+  try { applyInner(ctx) } catch (e) { console.error('deep-projects: apply failed', e); throw e }
+}
+function applyInner(ctx: ClientContext): void {
   appCtx = ctx
   ensureStyles()
   const t = ctx.locale.bind('projects')
 
-  ctx.effect(() => {
-    ctx.locale.register('projects', { en, zh })
-  }, 'deep-projects: locales')
+  // Return the disposer: without it a hot reload re-registers, dsh throws
+  // "already has locale" and the plugin dies half-applied.
+  ctx.effect(() => ctx.locale.register('projects', { en, zh }), 'deep-projects: locales')
 
   // "…" menu for project rows, through dsh's shared context-menu service
   // (same popup as workspace/chat menus). Chat rows reuse dsh's 'session' menu.
@@ -1866,12 +1870,10 @@ export function apply(ctx: ClientContext): void {
   // Right-sidebar "Project" tab: a page type opened from the chat header. The
   // body resolves the project from the session's cwd and renders the shared
   // content (memories, instructions, knowledge) in the narrow tab column.
-  ctx.effect(() => {
-    ctx.sidebarRightTabs.register({
-      id: TAB_ID, kind: 'project', multiple: true, priority: 'extension',
-      title: () => t('tab.project'),
-    })
-  }, 'deep-projects: sidebar tab type')
+  ctx.effect(() => ctx.sidebarRightTabs.register({
+    id: TAB_ID, kind: 'project', multiple: true, priority: 'extension',
+    title: () => t('tab.project'),
+  }), 'deep-projects: sidebar tab type')
 
   ctx.effect(() => {
     ctx.slots.inject('sidebar.right.pane.tab', () =>
