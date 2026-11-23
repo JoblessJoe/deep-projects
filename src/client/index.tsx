@@ -30,6 +30,7 @@ import {
   IconChevronsUpDownOutlineRegular as SortIcon,
   IconChevronLeftOutlineRegular as BackIcon,
   IconCheckOutlineRegular as CheckIcon,
+  IconProjectAddOutlineRegular as NewProjectIcon,
   IconSendOutlineRegular as SendIcon,
   IconListPenOutlineRegular as InstructionsIcon,
   IconPaperclipOutlineRegular as PaperclipIcon,
@@ -552,6 +553,8 @@ function useOnChanged(fn: () => void): void {
   useEffect(() => { changeListeners.add(fn); return () => { changeListeners.delete(fn) } }, [fn])
 }
 let editRequest: string | null = null
+/** Set by the new-chat picker's "New project": the tiles page opens its create form. */
+let createRequest = false
 let moveTargets: ProjectRow[] = []
 
 type Point = { x: number; y: number }
@@ -685,6 +688,9 @@ function ProjectsGrid({ t, allSessions }: { t: T; allSessions: SessionRow[] }): 
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const checkCreate = useCallback(() => { if (createRequest) { createRequest = false; setCreating(true) } }, [])
+  useEffect(checkCreate, [checkCreate])
+  useOnChanged(checkCreate)
   const [archived, setArchived] = useState(false)
   const [byName, setByName] = useState(false)
 
@@ -1205,11 +1211,13 @@ function wrapWorkspacePicker(Stock: (p: any) => ReactNode): (p: any) => ReactNod
     const workspaces = props.useWorkspaces((s: { items: WorkspaceItem[] }) => s.items) as WorkspaceItem[]
     const t = appCtx!.locale.bind('projects')
     const close = (): void => { setHeroMenu(false); props.onClose() }
+    const group = (id: string, text: string, rows: ProjectRow[]): MenuEntry[] => rows.length === 0 ? [] : [
+      { type: 'label', id, text },
+      ...rows.map(p => ({ id: 'p:' + p.slug, label: p.name, icon: <ProjectIcon size={16} /> })),
+    ]
     const items: MenuEntry[] = [
-      ...(projects.length === 0 ? [] : [
-        { type: 'label', id: 'label:projects', text: t('nav') } as const,
-        ...projects.map(p => ({ id: 'p:' + p.slug, label: p.name, icon: <ProjectIcon size={16} /> })),
-      ]),
+      ...group('label:pinned', t('hero.pinned'), projects.filter(p => p.starred)),
+      ...group('label:projects', t('nav'), projects.filter(p => !p.starred)),
       ...(workspaces.length === 0 ? [] : [
         { type: 'label', id: 'label:workspaces', text: t('hero.workspaces') } as const,
         ...workspaces.map(w => ({ id: w.workspaceId, label: workspaceTitle(w.title, props.t('workspace.defaultName')), icon: <FolderClosedIcon size={16} /> })),
@@ -1218,6 +1226,7 @@ function wrapWorkspacePicker(Stock: (p: any) => ReactNode): (p: any) => ReactNod
     const onSelect = (id: string): void => {
       close()
       if (id === '::add') setAdding(true)
+      else if (id === '::newProject') { createRequest = true; select(null); appCtx!.layout.selectPanel(PANEL_ID); notifyChanged() }
       else if (id.startsWith('p:')) { const p = projects.find(x => 'p:' + x.slug === id); if (p?.path) void startProjectChat(p.path) }
       else props.onPick(id)
     }
@@ -1234,7 +1243,10 @@ function wrapWorkspacePicker(Stock: (p: any) => ReactNode): (p: any) => ReactNod
           open={(props.open || ours) && !adding}
           anchor={null}
           items={items}
-          footer={[{ id: '::add', label: props.t('menu.addWorkspace'), icon: <AddIcon size={16} /> }]}
+          footer={[
+            { id: '::newProject', label: t('create.title'), icon: <NewProjectIcon size={16} /> },
+            { id: '::add', label: props.t('menu.addWorkspace'), icon: <AddIcon size={16} /> },
+          ]}
           selectedId={ours ? heroMenu.selected : props.selectedId}
           onSelect={onSelect}
           onClose={close}

@@ -2,6 +2,7 @@
 
 export const en = {
   'grid.yours': 'Your projects',
+  'hero.pinned': 'Pinned',
   'grid.sort.recent': 'Sorted by recent activity',
   'grid.sort.name': 'Sorted by name',
   'page.composer': 'New chat in {name}',
@@ -86,6 +87,7 @@ export const en = {
 
 export const zh = {
   'grid.yours': '我的项目',
+  'hero.pinned': '已固定',
   'grid.sort.recent': '按最近活动排序',
   'grid.sort.name': '按名称排序',
   'page.composer': '在 {name} 中新建对话',
