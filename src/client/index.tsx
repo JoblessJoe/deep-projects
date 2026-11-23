@@ -443,11 +443,14 @@ interface ProjectDetail extends ProjectRow {
   instructions: string
   knowledge: KnowledgeFile[]
 }
+/** dsh client SessionSummary (sessions.list byId rows). */
 interface SessionRow {
-  sessionId: string
+  id: string
+  title?: string
+  blank?: boolean
+  origin?: 'subagent'
   updatedAt: number
   cwd?: string
-  projections?: { values?: Record<string, unknown> } | null
   projectionValues?: { workingDirectory?: string | null } | null
 }
 
@@ -484,16 +487,15 @@ async function postRaw(path: string, bytes: ArrayBuffer): Promise<any> {
 const EMPTY_SESSIONS = { byId: {}, all: [] } as const
 
 function sessionTitle(row: SessionRow, t: T): string {
-  const v = row.projections?.values
-  const title = v && typeof v.title === 'string' && v.title.trim() ? v.title : ''
-  return title || t('session.none.title')
+  return row.title?.trim() || t('session.none.title')
 }
 
-/** Sessions whose cwd is inside the project folder. */
+/** Real chats (not empty drafts or subagents) whose cwd is inside the project folder. */
 function sessionsFor(project: ProjectRow | null, all: SessionRow[]): SessionRow[] {
   if (!project?.path) return []
   const p = project.path
   return all
+    .filter(r => !r.blank && r.origin !== 'subagent')
     .filter(r => (cwdOf(r) ?? '') === p || (cwdOf(r) ?? '').startsWith(p + '/'))
     .sort((a, b) => b.updatedAt - a.updatedAt)
 }
@@ -849,11 +851,11 @@ function ProjectPage({ t, slug, allSessions }: { t: T; slug: string; allSessions
               {chats.length === 0 && <p className="dshpx-muted">{t('page.noChats')}</p>}
               <div className="dshpx-recent">
                 {chats.map(r => (
-                  <div key={r.sessionId} className="dshpx-recent-row" role="button" tabIndex={0}
-                    onClick={() => openChat(r.sessionId)} onKeyDown={(e) => { if (e.key === 'Enter') openChat(r.sessionId) }}>
+                  <div key={r.id} className="dshpx-recent-row" role="button" tabIndex={0}
+                    onClick={() => openChat(r.id)} onKeyDown={(e) => { if (e.key === 'Enter') openChat(r.id) }}>
                     <span className="dshpx-recent-title">{sessionTitle(r, t)}</span>
                     <span className="dshpx-recent-date">{shortDate(r.updatedAt)}</span>
-                    <span className="dshpx-recent-more"><MoreButton label={t('menu.more')} onClick={(e) => openChatMenu(e, r.sessionId, sessionTitle(r, t))} /></span>
+                    <span className="dshpx-recent-more"><MoreButton label={t('menu.more')} onClick={(e) => openChatMenu(e, r.id, sessionTitle(r, t))} /></span>
                   </div>
                 ))}
               </div>
@@ -1022,9 +1024,9 @@ function ProjectsSidebarGroup(): ReactNode {
                   <span className="dshpx-empty">{t('sessions.empty')}</span>
                 )}
                 {chats.map((r) => (
-                  <div key={r.sessionId} className="dshpx-side-child" role="button" tabIndex={0} onClick={() => openChat(r.sessionId)} onKeyDown={(e) => { if (e.key === 'Enter') openChat(r.sessionId) }} title={sessionTitle(r, t)}>
+                  <div key={r.id} className="dshpx-side-child" role="button" tabIndex={0} onClick={() => openChat(r.id)} onKeyDown={(e) => { if (e.key === 'Enter') openChat(r.id) }} title={sessionTitle(r, t)}>
                     <span className="dshpx-side-child-title">{sessionTitle(r, t)}</span>
-                    <span className="dshpx-side-actions"><MoreButton label={t('menu.more')} onClick={(e) => openChatMenu(e, r.sessionId, sessionTitle(r, t))} /></span>
+                    <span className="dshpx-side-actions"><MoreButton label={t('menu.more')} onClick={(e) => openChatMenu(e, r.id, sessionTitle(r, t))} /></span>
                   </div>
                 ))}
               </div>
