@@ -29,6 +29,7 @@ import {
   IconFolderOpenRegular as OpenIcon,
   IconChevronsUpDownOutlineRegular as SortIcon,
   IconChevronLeftOutlineRegular as BackIcon,
+  IconCheckOutlineRegular as CheckIcon,
   IconSendOutlineRegular as SendIcon,
   IconListPenOutlineRegular as InstructionsIcon,
   IconPaperclipOutlineRegular as PaperclipIcon,
@@ -1732,7 +1733,7 @@ export function apply(ctx: ClientContext): void {
     for (const [key, Icon] of Object.entries({
       'deep-projects.open': OpenIcon, 'deep-projects.newChat': NewChatIcon, 'deep-projects.edit': EditIcon,
       'deep-projects.pin': PinOutlineIcon, 'deep-projects.unpin': PinFillIcon, 'deep-projects.delete': TrashIcon,
-      'deep-projects.archive': ArchiveIcon, 'deep-projects.unarchive': UnarchiveIcon,
+      'deep-projects.archive': ArchiveIcon, 'deep-projects.unarchive': UnarchiveIcon, 'deep-projects.check': CheckIcon,
     })) yield ctx.slots.register({ name: 'contextMenu.icon', key } as any, Icon as any)
   } as any)
   ctx.effect(() => (ctx as any).contextMenus.register({
@@ -1784,7 +1785,9 @@ export function apply(ctx: ClientContext): void {
       }
       return [
         { id: 'move', label: t('menu.moveTo'), icon: { key: 'deep-projects.open' }, disabled: rows.length === 0,
-          children: rows.filter(p => p !== current).map(p => ({ id: p.slug, label: p.name, run: move(p.slug), failureLabel: t('menu.moveFailed') })) },
+          children: rows.map(p => p === current
+            ? { id: p.slug, label: p.name, icon: { key: 'deep-projects.check' }, run: () => {} }
+            : { id: p.slug, label: p.name, run: move(p.slug), failureLabel: t('menu.moveFailed') }) },
         ...(current ? [{ id: 'remove', label: t('menu.removeFrom'), icon: { key: 'deep-projects.archive' }, run: move(null), failureLabel: t('menu.moveFailed') }] : []),
       ]
     },
