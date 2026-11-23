@@ -1,13 +1,9 @@
 // deep-projects client: Claude-Desktop-style Projects.
 //
-// Main panel = 2 panes (single pane on narrow/mobile viewports):
-//   left   — project tree; each project is COLLAPSIBLE and lists its chats
-//            (sessions whose cwd is inside the project folder); clicking a chat
-//            opens it. Pinned projects sort first; filter box on top. Each row
-//            carries a pin toggle + a "new chat" button.
-//   right  — selected project: quick-memory bar (append a dated bullet to
-//            AGENTS.local.md, editable), knowledge files (drag-or-pick upload),
-//            and the instructions editor (AGENTS.md).
+// Main panel = Claude-Desktop-style pages:
+//   grid    — 2-column tiles (Your projects / Archived), search, sort, New project.
+//   project — breadcrumb, composer that starts a chat right away, Recent chats,
+//             side rows (goal, instructions, knowledge, memory) opening modals.
 //
 // Sidebar: a pinnable "Projects" launcher (the shell's built-in panel pin
 // system controls show/unpin) + a pinned-projects group in the sidebar column.
@@ -31,7 +27,11 @@ import {
   IconArchiveOutlineRegular as ArchiveIcon,
   IconUnarchiveOutlineRegular as UnarchiveIcon,
   IconFolderOpenRegular as OpenIcon,
-  IconChevronLeftOutlineRegular as BackIcon,
+  IconChevronsUpDownOutlineRegular as SortIcon,
+  IconSendOutlineRegular as SendIcon,
+  IconListPenOutlineRegular as InstructionsIcon,
+  IconPaperclipOutlineRegular as PaperclipIcon,
+  IconThinkOutlineRegular as MemoryIcon,
   IconPlusOutlineRegular as AddIcon,
   IconSearchOutlineRegular as SearchIcon,
   IconPinFillRegular as PinFillIcon,
@@ -82,18 +82,9 @@ const CSS = `
 }
 .dshpx-side, .dshpx-tabpane { --dshpx-line: color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent);
   --dshpx-fill: var(--dsw-alias-bg-skeleton); --dshpx-hover: var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-skeleton)); }
-.dshpx-split { display: flex; width: 100%; height: 100%; min-height: 0; }
 .dshpx-root svg, .dshpx-side svg, .dshpx-tabpane svg, .dshpx-header-btn svg { fill: currentColor; }
 .dshpx-root button, .dshpx-tabpane button { font-family: inherit; }
 
-/* ---- left: project tree ---- */
-.dshpx-tree {
-  width: 280px; min-width: 240px; flex: none; box-sizing: border-box;
-  border-right: 1px solid var(--dshpx-line);
-  display: flex; flex-direction: column; gap: 12px; padding: 16px 12px; overflow-y: auto;
-}
-.dshpx-tree-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
-.dshpx-tree-title { font-size: 15px; font-weight: 600; color: var(--dsw-alias-label-primary); }
 .dshpx-search {
   display: flex; align-items: center; gap: 8px; padding: 7px 12px;
   background: var(--dshpx-fill); border: 1px solid transparent; border-radius: 10px;
@@ -115,7 +106,6 @@ const CSS = `
 }
 .dshpx-row:hover { background: var(--dshpx-hover); }
 .dshpx-row-active, .dshpx-row-active:hover { background: var(--dshpx-fill); font-weight: 550; }
-.dshpx-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dshpx-row-actions { display: inline-flex; flex: none; gap: 2px; opacity: 0; transition: opacity 100ms ease; }
 .dshpx-row:hover .dshpx-row-actions, .dshpx-row:focus-within .dshpx-row-actions { opacity: 1; }
 .dshpx-icon-btn {
@@ -131,17 +121,6 @@ const CSS = `
   font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums;
   color: var(--dsw-alias-label-caption); background: var(--dshpx-fill);
 }
-.dshpx-children { margin: 1px 0 4px 24px; display: flex; flex-direction: column; gap: 1px; }
-.dshpx-child {
-  display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box;
-  padding: 5px 8px; border: none; border-radius: 6px; background: transparent; cursor: pointer;
-  font-size: 13px; color: var(--dsw-alias-label-secondary); text-align: left; font-family: inherit;
-  transition: background 120ms ease, color 120ms ease;
-}
-.dshpx-child:hover { background: var(--dshpx-hover); color: var(--dsw-alias-label-primary); }
-.dshpx-child-dot { display: none; }
-.dshpx-child-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dshpx-child-time { flex: none; font-size: 11px; color: var(--dsw-alias-label-caption); }
 .dshpx-empty { font-size: 12.5px; padding: 4px 8px; color: var(--dsw-alias-label-caption); }
 .dshpx-muted { margin: 0; color: var(--dsw-alias-label-caption); font-size: 13px; }
 .dshpx-notice {
@@ -297,20 +276,9 @@ const CSS = `
 .dshpx-side-child .dshpx-side-actions { opacity: 0; }
 .dshpx-side-child:hover .dshpx-side-actions, .dshpx-side-child:focus-within .dshpx-side-actions { opacity: 1; }
 .dshpx-more { width: 24px; height: 24px; padding: 0; color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-caption)); }
-.dshpx-child-actions { display: none; flex: none; }
-.dshpx-child:hover .dshpx-child-actions, .dshpx-child:focus-within .dshpx-child-actions { display: inline-flex; }
-.dshpx-child:hover .dshpx-child-time, .dshpx-child:focus-within .dshpx-child-time { display: none; }
 .dshpx-edit { gap: 10px; }
 .dshpx-edit-name { font-size: 20px; font-weight: 650; padding: 8px 12px; }
 
-.dshpx-archived-head {
-  display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 6px 8px; border: none; background: transparent;
-  border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 550; color: var(--dsw-alias-label-caption); text-align: left;
-}
-.dshpx-archived-head:hover { background: var(--dshpx-hover); color: var(--dsw-alias-label-secondary); }
-.dshpx-archived-head svg { transition: transform 150ms ease-in-out; }
-.dshpx-archived-head .dshpx-arrow-open { transform: rotate(90deg); }
-.dshpx-archived .dshpx-row-name { color: var(--dsw-alias-label-secondary); }
 
 .dshpx-goal {
   margin-top: 6px; padding: 12px 16px; border-radius: 12px; text-align: left; font: inherit;
@@ -353,9 +321,76 @@ const CSS = `
 }
 .dshpx-header-btn:hover { background: var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-skeleton)); color: var(--dsw-alias-label-primary); }
 
+
+/* ---- projects page (grid + project page) ---- */
+.dshpx-page { height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
+.dshpx-page-inner { width: 100%; max-width: 1080px; margin: 0 auto; box-sizing: border-box; padding: 32px 40px 48px; display: flex; flex-direction: column; gap: 16px; }
+.dshpx-page-title { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.01em; color: var(--dsw-alias-label-primary); overflow-wrap: anywhere; }
+.dshpx-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.dshpx-toolbar-end { display: flex; align-items: center; gap: 6px; }
+.dshpx-toolbar-end .dshpx-search { padding: 5px 10px; }
+.dshpx-tabs { display: flex; gap: 4px; }
+.dshpx-tab { border: none; background: transparent; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13.5px; color: var(--dsw-alias-label-secondary); }
+.dshpx-tab:hover { background: var(--dshpx-hover); color: var(--dsw-alias-label-primary); }
+.dshpx-tab[aria-selected="true"] { background: var(--dshpx-fill); color: var(--dsw-alias-label-primary); }
+.dshpx-icon-btn[aria-pressed="true"] { color: var(--dsw-alias-label-primary); }
+.dshpx-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.dshpx-tile {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 12px; cursor: pointer;
+  background: var(--dshpx-fill); border: 1px solid transparent; transition: border-color 120ms ease, background 120ms ease;
+}
+.dshpx-tile:hover, .dshpx-tile:focus-visible { border-color: var(--dshpx-line); background: var(--dshpx-hover); outline: none; }
+.dshpx-tile-icon { flex: none; width: 36px; height: 36px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-base); }
+.dshpx-tile-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dshpx-tile-name { font-size: 14.5px; color: var(--dsw-alias-label-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dshpx-tile-date { font-size: 12.5px; color: var(--dsw-alias-label-caption); }
+.dshpx-tile-pin { flex: none; color: var(--dsw-alias-label-primary); }
+.dshpx-tile-more { flex: none; display: none; }
+.dshpx-tile:hover .dshpx-tile-more, .dshpx-tile:focus-within .dshpx-tile-more { display: inline-flex; }
+.dshpx-crumbs { flex: none; display: flex; align-items: center; gap: 4px; padding: 10px 16px; border-bottom: 1px solid var(--dshpx-line); }
+.dshpx-crumb { display: inline-flex; align-items: center; gap: 4px; border: none; background: transparent; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 14px; color: var(--dsw-alias-label-secondary); max-width: 50vw; }
+.dshpx-crumb:hover { background: var(--dshpx-hover); color: var(--dsw-alias-label-primary); }
+.dshpx-crumb-cur { color: var(--dsw-alias-label-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dshpx-crumb-sep { color: var(--dsw-alias-label-caption); }
+.dshpx-crumbs-end { margin-left: auto; display: flex; gap: 4px; }
+.dshpx-proj { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 48px; align-items: start; }
+.dshpx-proj-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.dshpx-composer { margin-top: 8px; border: 1px solid var(--dshpx-line); border-radius: 16px; background: var(--dshpx-fill); padding: 12px 14px 8px; display: flex; flex-direction: column; gap: 4px; }
+.dshpx-composer:focus-within { border-color: color-mix(in srgb, var(--dsw-alias-label-primary) 25%, transparent); }
+.dshpx-composer textarea { border: none; outline: none; resize: none; background: transparent; font: inherit; font-size: 14.5px; line-height: 1.5; color: var(--dsw-alias-label-primary); min-height: 44px; }
+.dshpx-composer textarea::placeholder { color: var(--dsw-alias-label-caption); }
+.dshpx-composer-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.dshpx-send { width: 32px; height: 32px; border-radius: 999px; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--dsw-alias-button-primary-fill, var(--dsw-alias-label-primary)); color: var(--dsw-alias-label-primary-inverted, var(--dsw-alias-bg-base)); }
+.dshpx-send:disabled { opacity: 0.35; cursor: default; }
+.dshpx-recent-h { margin: 24px 0 0; font-size: 13px; font-weight: 500; color: var(--dsw-alias-label-caption); }
+.dshpx-recent { display: flex; flex-direction: column; }
+.dshpx-recent-row { display: flex; align-items: center; gap: 12px; padding: 14px 4px; border-bottom: 1px solid var(--dshpx-line); cursor: pointer; font-size: 14px; }
+.dshpx-recent-row:hover { background: var(--dshpx-hover); }
+.dshpx-recent-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dsw-alias-label-primary); }
+.dshpx-recent-date { flex: none; font-size: 13px; color: var(--dsw-alias-label-caption); }
+.dshpx-recent-more { flex: none; display: none; }
+.dshpx-recent-row:hover .dshpx-recent-more, .dshpx-recent-row:focus-within .dshpx-recent-more { display: inline-flex; }
+.dshpx-recent-row:hover .dshpx-recent-date, .dshpx-recent-row:focus-within .dshpx-recent-date { display: none; }
+.dshpx-proj-side { display: flex; flex-direction: column; padding-top: 64px; }
+.dshpx-side-item { display: flex; align-items: center; gap: 12px; padding: 14px 4px; border: none; border-bottom: 1px solid var(--dshpx-line); background: transparent; cursor: pointer; text-align: left; font-size: 14px; color: var(--dsw-alias-label-primary); }
+.dshpx-side-item:hover { background: var(--dshpx-hover); }
+.dshpx-side-item-icon { flex: none; display: inline-flex; color: var(--dsw-alias-label-secondary); }
+.dshpx-side-item-label { flex: none; }
+.dshpx-side-item-meta { flex: 1; font-size: 12px; color: var(--dsw-alias-label-caption); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dshpx-side-item-action { margin-left: auto; flex: none; font-size: 13.5px; color: var(--dsw-alias-label-secondary); }
+.dshpx-side-goal { margin: 14px 4px 0; font-size: 13px; line-height: 1.5; color: var(--dsw-alias-label-secondary); white-space: pre-wrap; }
+.dshpx-proj-side .dshpx-path { margin: 10px 4px 0; }
+.dshpx-modal { width: min(640px, 92vw); max-width: none; }
+.dshpx-modal .dshpx-card { border: none; padding: 0; }
+.dshpx-modal .dshpx-card > .dshpx-card-head > .dshpx-h2, .dshpx-modal .dshpx-row-head > .dshpx-h2 { display: none; }
+
 /* ---- mobile: single pane (JS decides which pane; CSS keeps it full-bleed) ---- */
 @media (max-width: 820px) {
-  .dshpx-tree { width: 100%; min-width: 0; border-right: none; }
+  .dshpx-tiles { grid-template-columns: minmax(0, 1fr); }
+  .dshpx-proj { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .dshpx-proj-side { padding-top: 0; }
+  .dshpx-page-inner { padding: 20px 16px 32px; }
   .dshpx-detail { padding: 16px; }
   .dshpx-h1 { font-size: 22px; }
 }
@@ -387,20 +422,6 @@ function subscribeSelection(cb: () => void): () => void {
 }
 function useSelection(): string | null {
   return useSyncExternalStore(subscribeSelection, () => selectedSlug, () => selectedSlug)
-}
-
-/** True while the viewport is narrow (phone / small window). */
-function useNarrow(): boolean {
-  const [narrow, setNarrow] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.matchMedia('(max-width: 820px)').matches : false,
-  )
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 820px)')
-    const onChange = (e: MediaQueryListEvent) => setNarrow(e.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return narrow
 }
 
 // ---------------------------------------------------------------------------
@@ -609,183 +630,295 @@ function ProjectsPanel(): ReactNode {
     [snapshot],
   )
   const selected = useSelection()
-  const narrow = useNarrow()
-
-  if (narrow && selected) {
-    return (
-      <div className="dshpx-root dshpx-split">
-        <div className="dshpx-detail">
-          <div className="dshpx-detail-inner">
-            <button className="dshpx-btn dshpx-btn-ghost dshpx-btn-sm" onClick={() => select(null)}>
-              <BackIcon size={14} /> {t('detail.back')}
-            </button>
-            <DetailPane t={t} slug={selected} />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="dshpx-root dshpx-split">
-      <TreePane t={t} allSessions={allSessions} />
-      {!narrow && (
-        <div className="dshpx-detail">
-          <div className="dshpx-detail-inner">
-            <DetailPane t={t} slug={selected} />
-          </div>
-        </div>
-      )}
+    <div className="dshpx-root dshpx-page">
+      {selected
+        ? <ProjectPage t={t} slug={selected} allSessions={allSessions} />
+        : <ProjectsGrid t={t} allSessions={allSessions} />}
     </div>
   )
 }
 
+/** "vor 6 Tagen" under a week, else "14. Nov." (year added when not this year). */
+function shortDate(ts: number): string {
+  const days = Math.floor((Date.now() - ts) / 86_400_000)
+  if (days < 7) return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(-days, 'day')
+  const d = new Date(ts)
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' })
+}
+/** Last activity: newest chat in the project, else creation time. */
+function lastActive(p: ProjectRow, all: SessionRow[]): number {
+  return Math.max(new Date(p.createdAt).getTime() || 0, ...sessionsFor(p, all).map(r => r.updatedAt))
+}
+function openChat(id: string): void {
+  const ws = appCtx!.get('uiWorkspace') as unknown as { openSession(target: string): void }
+  ws.openSession(id)
+  appCtx!.layout.selectPanel(null)
+}
+
 // ---------------------------------------------------------------------------
-// Left pane: project tree (collapsible, pin + new-chat per row)
+// Projects page: header (tabs, search, sort, new) + 2-column tile grid
 // ---------------------------------------------------------------------------
-function TreePane({ t, allSessions }: { t: T; allSessions: SessionRow[] }): ReactNode {
+function ProjectsGrid({ t, allSessions }: { t: T; allSessions: SessionRow[] }): ReactNode {
   const [rows, setRows] = useState<ProjectRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState('')
+  const [filter, setFilter] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
-  const [showArchived, setShowArchived] = useState(false)
-  const selected = useSelection()
+  const [archived, setArchived] = useState(false)
+  const [byName, setByName] = useState(false)
 
   const load = useCallback(() => {
     setError(null)
     getJson('list')
-      .then((d) => {
-        const list: ProjectRow[] = Array.isArray(d?.projects) ? d.projects : []
-        list.sort((a, b) =>
-          a.starred === b.starred
-            ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            : a.starred ? -1 : 1,
-        )
-        setRows(list)
-      })
+      .then((d) => { setRows(Array.isArray(d?.projects) ? d.projects : []) })
       .catch(() => setError(t('error.generic')))
   }, [t])
-
   useEffect(load, [load])
   useOnChanged(load)
 
-  const toggle = (slug: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      if (next.has(slug)) next.delete(slug); else next.add(slug)
-      return next
-    })
-  }
-  const openProject = (p: ProjectRow) => {
-    select(p.slug)
-  }
-  const openChat = (id: string) => {
-    const ws = appCtx!.get('uiWorkspace') as unknown as { openSession(target: string): void }
-    ws.openSession(id)
-    appCtx!.layout.selectPanel(null)
-  }
-  const togglePin = async (p: ProjectRow) => {
-    await postJson('star?slug=' + encodeURIComponent(p.slug), { starred: !p.starred })
-    load()
-  }
-
-  const visible = (rows ?? []).filter(p => {
-    if (!filter.trim()) return true
-    const f = filter.toLowerCase()
-    return p.name.toLowerCase().includes(f) || (p.description ?? '').toLowerCase().includes(f)
-  })
-
-  const active = visible.filter(p => !p.archived)
-  const archived = visible.filter(p => p.archived)
-  const renderRow = (p: ProjectRow) => {
-            const isOpen = expanded.has(p.slug)
-            const chats = sessionsFor(p, allSessions)
-            const isActive = selected === p.slug
-            return (
-              <div key={p.slug}>
-                <div
-                  className={`dshpx-row${isActive ? ' dshpx-row-active' : ''}${p.starred ? ' dshpx-row-pinned' : ''}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openProject(p)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') openProject(p) }}
-                >
-                  <LeadSlot open={isOpen} onToggle={() => toggle(p.slug)} label={isOpen ? t('tree.collapse') : t('tree.expand')} />
-                  <span className="dshpx-row-name">{p.name}</span>
-                  {chats.length > 0 && <span className="dshpx-count">{chats.length}</span>}
-                  <span className="dshpx-row-actions">
-                    <MoreButton label={t('menu.more')} onClick={(e) => openProjectMenu(e, p)} />
-                    <button
-                      className="dshpx-icon-btn"
-                      title={t('row.newChat')}
-                      disabled={!p.path}
-                      onClick={(e) => { e.stopPropagation(); if (p.path) void startProjectChat(p.path) }}
-                    >
-                      <NewChatIcon size={13} />
-                    </button>
-                  </span>
-                </div>
-                {isOpen && (
-                  <div className="dshpx-children">
-                    {chats.length === 0 && <span className="dshpx-empty">{t('sessions.empty')}</span>}
-                    {chats.map((r) => (
-                      <div key={r.sessionId} className="dshpx-child" role="button" tabIndex={0} onClick={() => openChat(r.sessionId)} onKeyDown={(e) => { if (e.key === 'Enter') openChat(r.sessionId) }}>
-                        <span className="dshpx-child-title">{sessionTitle(r, t)}</span>
-                        <span className="dshpx-child-time">{relTime(r.updatedAt)}</span>
-                        <span className="dshpx-child-actions"><MoreButton label={t('menu.more')} onClick={(e) => openChatMenu(e, r.sessionId, sessionTitle(r, t))} /></span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-  }
+  const f = (filter ?? '').trim().toLowerCase()
+  const visible = (rows ?? [])
+    .filter(p => !!p.archived === archived)
+    .filter(p => !f || p.name.toLowerCase().includes(f) || (p.description ?? '').toLowerCase().includes(f))
+    .map(p => ({ p, at: lastActive(p, allSessions) }))
+    .sort((a, b) => byName ? a.p.name.localeCompare(b.p.name) : b.at - a.at)
 
   return (
-    <div className="dshpx-tree">
-      <div className="dshpx-tree-head">
-        <span className="dshpx-tree-title">{t('tree.title')}</span>
-        <button className="dshpx-icon-btn" title={t('create.title')} onClick={() => setCreating(true)}>
-          <AddIcon size={14} />
-        </button>
+    <div className="dshpx-page-inner">
+      <h1 className="dshpx-page-title">{t('tree.title')}</h1>
+      <div className="dshpx-toolbar">
+        <div className="dshpx-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={!archived} className="dshpx-tab" onClick={() => setArchived(false)}>{t('grid.yours')}</button>
+          <button type="button" role="tab" aria-selected={archived} className="dshpx-tab" onClick={() => setArchived(true)}>{t('tree.archived')}</button>
+        </div>
+        <div className="dshpx-toolbar-end">
+          {filter !== null && (
+            <label className="dshpx-search">
+              <SearchIcon size={13} />
+              <input autoFocus value={filter} placeholder={t('tree.search')} onChange={(e) => setFilter(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') setFilter(null) }} />
+            </label>
+          )}
+          <button type="button" className="dshpx-icon-btn" title={t('tree.search')} aria-pressed={filter !== null} onClick={() => setFilter(filter === null ? '' : null)}>
+            <SearchIcon size={16} />
+          </button>
+          <button type="button" className="dshpx-icon-btn" title={byName ? t('grid.sort.name') : t('grid.sort.recent')} onClick={() => setByName(v => !v)}>
+            <SortIcon size={16} />
+          </button>
+          <button type="button" className="dshpx-btn dshpx-btn-primary dshpx-btn-sm" onClick={() => setCreating(true)}>{t('create.title')}</button>
+        </div>
       </div>
 
       {creating && (
-        <CreateForm
-          t={t}
-          onDone={(p) => { setCreating(false); openProject(p) }}
-          onCancel={() => setCreating(false)}
-        />
+        <CreateForm t={t} onDone={(p) => { setCreating(false); notifyChanged(); select(p.slug) }} onCancel={() => setCreating(false)} />
       )}
-
-      <label className="dshpx-search">
-        <SearchIcon size={13} />
-        <input
-          value={filter}
-          placeholder={t('tree.search')}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-      </label>
-
       {error && <ErrorBox t={t} message={error} onRetry={load} />}
       {!error && rows === null && <p className="dshpx-muted">{t('loading')}</p>}
       {!error && rows !== null && visible.length === 0 && (
-        <p className="dshpx-muted">{rows.length === 0 ? t('empty.title') : '—'}</p>
+        <p className="dshpx-muted">{rows.length === 0 ? t('empty.hint') : '—'}</p>
       )}
 
-      {!error && rows !== null && (
-        <div className="dshpx-list">
-          {active.map(renderRow)}
-          {archived.length > 0 && (
-            <button type="button" className="dshpx-archived-head" aria-expanded={showArchived} onClick={() => setShowArchived(v => !v)}>
-              <TriangleIcon size={10} className={showArchived ? 'dshpx-arrow-open' : undefined} />
-              {t('tree.archived')} <span className="dshpx-count">{archived.length}</span>
+      <div className="dshpx-tiles">
+        {visible.map(({ p, at }) => (
+          <div key={p.slug} className="dshpx-tile" role="button" tabIndex={0}
+            onClick={() => select(p.slug)} onKeyDown={(e) => { if (e.key === 'Enter') select(p.slug) }}>
+            <span className="dshpx-tile-icon"><ProjectIcon size={18} /></span>
+            <span className="dshpx-tile-text">
+              <span className="dshpx-tile-name">{p.name}</span>
+              <span className="dshpx-tile-date">{shortDate(at)}</span>
+            </span>
+            {p.starred && <PinFillIcon size={16} className="dshpx-tile-pin" />}
+            <span className="dshpx-tile-more"><MoreButton label={t('menu.more')} onClick={(e) => openProjectMenu(e, p)} /></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** New chat in the project folder, opened, with the first message queued. */
+async function sendProjectChat(cwd: string, text: string): Promise<boolean> {
+  const sessions = appCtx!.get('sessions') as any
+  const id: string = await sessions.create({ cwd })
+  openChat(id)
+  const r = await sessions.using(id, { source: 'controllerOperation' }, async (ref: any) => {
+    const b = await ref.ready
+    return b.session.prompt([{ type: 'text', text }], 'queue')
+  }).catch(() => null)
+  return !!r?.ok
+}
+
+// ---------------------------------------------------------------------------
+// Project page: breadcrumb, title, composer, recent chats | side rows
+// ---------------------------------------------------------------------------
+type SideModal = 'instructions' | 'knowledge' | 'memory' | 'edit' | null
+function ProjectPage({ t, slug, allSessions }: { t: T; slug: string; allSessions: SessionRow[] }): ReactNode {
+  const [detail, setDetail] = useState<ProjectDetail | null>(null)
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [modal, setModal] = useState<SideModal>(null)
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sendErr, setSendErr] = useState(false)
+
+  const load = useCallback(() => {
+    setError(null)
+    Promise.all([
+      getJson('detail?slug=' + encodeURIComponent(slug)),
+      getJson('notes?slug=' + encodeURIComponent(slug)),
+    ])
+      .then(([d, n]) => {
+        if (d?.ok && d.project) { setDetail(d.project); setNotes(n?.notes ?? '') }
+        else setError(t('error.generic'))
+      })
+      .catch(() => setError(t('error.generic')))
+  }, [slug, t])
+  useEffect(load, [load])
+  useOnChanged(load)
+  // "Edit" from the project "…" menu lands here.
+  const checkEdit = useCallback(() => { if (editRequest === slug) { editRequest = null; setModal('edit') } }, [slug])
+  useEffect(checkEdit, [checkEdit])
+  useOnChanged(checkEdit)
+
+  const send = async () => {
+    const body = text.trim()
+    if (!body || !detail?.path || sending) return
+    setSending(true); setSendErr(false)
+    const ok = await sendProjectChat(detail.path, body).catch(() => false)
+    setSending(false)
+    if (ok) setText(''); else setSendErr(true)
+  }
+  const togglePin = async () => {
+    if (!detail) return
+    await postJson('star?slug=' + encodeURIComponent(detail.slug), { starred: !detail.starred })
+    notifyChanged()
+  }
+
+  const chats = detail ? sessionsFor(detail, allSessions) : []
+  const memCount = notes.split('\n').filter(l => /^\s*[-*]\s+\S/.test(l)).length
+
+  return (
+    <>
+      <div className="dshpx-crumbs">
+        <button type="button" className="dshpx-crumb" onClick={() => select(null)}>{t('tree.title')}</button>
+        <span className="dshpx-crumb-sep">/</span>
+        {detail && (
+          <button type="button" className="dshpx-crumb dshpx-crumb-cur" aria-haspopup="menu" onClick={(e) => openProjectMenu(e, detail)}>
+            {detail.name} <ChevronIcon size={14} />
+          </button>
+        )}
+        <span className="dshpx-crumbs-end">
+          {detail && !detail.archived && (
+            <button type="button" className="dshpx-icon-btn" title={detail.starred ? t('detail.unstar') : t('detail.star')} onClick={() => void togglePin()}>
+              {detail.starred ? <PinFillIcon size={16} className="dshpx-pin-on" /> : <PinOutlineIcon size={16} />}
             </button>
           )}
-          {showArchived && <div className="dshpx-archived">{archived.map(renderRow)}</div>}
-        </div>
+        </span>
+      </div>
+
+      <div className="dshpx-page-inner">
+        {error && <ErrorBox t={t} message={error} onRetry={load} />}
+        {!error && detail === null && <p className="dshpx-muted">{t('loading')}</p>}
+        {!error && detail !== null && (
+          <div className="dshpx-proj">
+            <div className="dshpx-proj-main">
+              <h1 className="dshpx-page-title">{detail.name}</h1>
+              {detail.description && <p className="dshpx-desc">{detail.description}</p>}
+              {detail.archived && (
+                <button className="dshpx-btn dshpx-btn-ghost dshpx-btn-sm" type="button" style={{ alignSelf: 'flex-start' }}
+                  onClick={async () => { await postJson('archive?slug=' + encodeURIComponent(detail.slug), { archived: false }); notifyChanged() }}>
+                  <UnarchiveIcon size={14} /> {t('menu.unarchive')}
+                </button>
+              )}
+              <div className="dshpx-composer">
+                <textarea
+                  value={text} rows={2} disabled={sending || !detail.path} autoFocus
+                  placeholder={t('page.composer').replace('{name}', detail.name)}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send() } }}
+                />
+                <div className="dshpx-composer-foot">
+                  {sendErr && <span className="dshpx-err">{t('page.sendFailed')}</span>}
+                  <button type="button" className="dshpx-send" title={t('page.send')} aria-label={t('page.send')} disabled={!text.trim() || sending} onClick={() => void send()}>
+                    <SendIcon size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <h2 className="dshpx-recent-h">{t('page.recent')}</h2>
+              {chats.length === 0 && <p className="dshpx-muted">{t('page.noChats')}</p>}
+              <div className="dshpx-recent">
+                {chats.map(r => (
+                  <div key={r.sessionId} className="dshpx-recent-row" role="button" tabIndex={0}
+                    onClick={() => openChat(r.sessionId)} onKeyDown={(e) => { if (e.key === 'Enter') openChat(r.sessionId) }}>
+                    <span className="dshpx-recent-title">{sessionTitle(r, t)}</span>
+                    <span className="dshpx-recent-date">{shortDate(r.updatedAt)}</span>
+                    <span className="dshpx-recent-more"><MoreButton label={t('menu.more')} onClick={(e) => openChatMenu(e, r.sessionId, sessionTitle(r, t))} /></span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <aside className="dshpx-proj-side">
+              <SideRow icon={<ProjectIcon size={16} />} label={t('goal.title')} meta={detail.goal ? '' : t('page.notSet')} action={t('memory.edit')} onClick={() => setModal('edit')} />
+              <SideRow icon={<InstructionsIcon size={16} />} label={t('page.instructions')} action={t('memory.edit')} onClick={() => setModal('instructions')} />
+              <SideRow icon={<PaperclipIcon size={16} />} label={t('page.knowledge')} meta={t('page.files').replace('{n}', String(detail.knowledge.length))} action={t('note.add')} onClick={() => setModal('knowledge')} />
+              <SideRow icon={<MemoryIcon size={16} />} label={t('memory.title')} meta={memCount ? String(memCount) : ''} action={t('page.view')} onClick={() => setModal('memory')} />
+              {detail.goal && <p className="dshpx-side-goal">{detail.goal}</p>}
+              {detail.path && <p className="dshpx-path">{detail.path}</p>}
+            </aside>
+          </div>
+        )}
+      </div>
+
+      {detail && modal && (
+        <Modal open onClose={() => setModal(null)} closeLabel={t('delete.close')} className="dshpx-modal" contentClassName="dshpx-root"
+          title={modal === 'edit' ? t('menu.edit') : modal === 'instructions' ? t('section.instructions') : modal === 'knowledge' ? t('section.knowledge') : t('memory.title')}>
+          {modal === 'edit' && <EditProject t={t} detail={detail} onDone={() => setModal(null)} />}
+          {modal === 'instructions' && <InstructionsEditor t={t} detail={detail} onChange={load} />}
+          {modal === 'knowledge' && <KnowledgeFiles t={t} detail={detail} onChange={load} />}
+          {modal === 'memory' && <Memory t={t} slug={detail.slug} notes={notes} onSaved={setNotes} />}
+        </Modal>
       )}
+    </>
+  )
+}
+
+function SideRow({ icon, label, meta, action, onClick }: { icon: ReactNode; label: string; meta?: string; action: string; onClick: () => void }): ReactNode {
+  return (
+    <button type="button" className="dshpx-side-item" onClick={onClick}>
+      <span className="dshpx-side-item-icon">{icon}</span>
+      <span className="dshpx-side-item-label">{label}</span>
+      {meta && <span className="dshpx-side-item-meta">{meta}</span>}
+      <span className="dshpx-side-item-action">{action}</span>
+    </button>
+  )
+}
+
+function EditProject({ t, detail, onDone }: { t: T; detail: ProjectDetail; onDone: () => void }): ReactNode {
+  const [v, setV] = useState({ name: detail.name, description: detail.description ?? '', goal: detail.goal ?? '' })
+  const [err, setErr] = useState(false)
+  const save = async () => {
+    const d = await postJson('rename?slug=' + encodeURIComponent(detail.slug), v).catch(() => null)
+    if (!d?.ok) { setErr(true); return }
+    notifyChanged(); onDone()
+  }
+  return (
+    <div className="dshpx-head dshpx-edit">
+      <label className="dshpx-label">{t('create.name')}
+        <input className="dshpx-input" value={v.name} maxLength={60} autoFocus onChange={(e) => setV({ ...v, name: e.target.value })} />
+      </label>
+      <label className="dshpx-label">{t('create.description')}
+        <input className="dshpx-input" value={v.description} placeholder={t('create.description.placeholder')} onChange={(e) => setV({ ...v, description: e.target.value })} />
+      </label>
+      <label className="dshpx-label">{t('goal.title')}
+        <textarea className="dshpx-textarea dshpx-goal-input" value={v.goal} placeholder={t('goal.placeholder')} maxLength={2000} onChange={(e) => setV({ ...v, goal: e.target.value })} />
+      </label>
+      <div className="dshpx-btns">
+        {err && <span className="dshpx-err">{t('create.invalid')}</span>}
+        <button className="dshpx-btn dshpx-btn-ghost dshpx-btn-sm" onClick={onDone}>{t('create.cancel')}</button>
+        <button className="dshpx-btn dshpx-btn-primary dshpx-btn-sm" disabled={!v.name.trim()} onClick={() => void save()}>{t('instructions.save')}</button>
+      </div>
     </div>
   )
 }
@@ -958,21 +1091,6 @@ function CreateForm({
       </div>
     </div>
   )
-}
-
-// ---------------------------------------------------------------------------
-// Right pane: detail of the selected project (or placeholder)
-// ---------------------------------------------------------------------------
-function DetailPane({ t, slug }: { t: T; slug: string | null }): ReactNode {
-  if (!slug) {
-    return (
-      <div className="dshpx-placeholder">
-        <p className="dshpx-h1">{t('tab.title')}</p>
-        <p className="dshpx-muted">{t('empty.hint')}</p>
-      </div>
-    )
-  }
-  return <ProjectContent t={t} slug={slug} />
 }
 
 // ---------------------------------------------------------------------------

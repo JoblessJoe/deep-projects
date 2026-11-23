@@ -1,6 +1,19 @@
 // Locale dictionaries for deep-projects. Both baseline locales required.
 
 export const en = {
+  'grid.yours': 'Your projects',
+  'grid.sort.recent': 'Sorted by recent activity',
+  'grid.sort.name': 'Sorted by name',
+  'page.composer': 'New chat in {name}',
+  'page.send': 'Send',
+  'page.sendFailed': 'Could not send. The chat was opened; type there.',
+  'page.recent': 'Recent',
+  'page.noChats': 'No chats yet. Type above to start one.',
+  'page.instructions': 'Instructions',
+  'page.knowledge': 'Knowledge',
+  'page.files': '{n} files',
+  'page.view': 'View',
+  'page.notSet': 'Not set',
   'nav': 'Projects',
   'tab.title': 'Projects',
   'tab.project': 'Project',
@@ -72,6 +85,19 @@ export const en = {
 }
 
 export const zh = {
+  'grid.yours': '我的项目',
+  'grid.sort.recent': '按最近活动排序',
+  'grid.sort.name': '按名称排序',
+  'page.composer': '在 {name} 中新建对话',
+  'page.send': '发送',
+  'page.sendFailed': '发送失败。对话已打开，请在那里输入。',
+  'page.recent': '最近',
+  'page.noChats': '还没有对话。在上方输入即可开始。',
+  'page.instructions': '指令',
+  'page.knowledge': '知识',
+  'page.files': '{n} 个文件',
+  'page.view': '查看',
+  'page.notSet': '未设置',
   'nav': '项目',
   'goal.title': '目标',
   'goal.placeholder': '这个项目是做什么的？怎样算完成？',
