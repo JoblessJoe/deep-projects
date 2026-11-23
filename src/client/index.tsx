@@ -588,7 +588,7 @@ function LeadSlot({ open, onToggle, label }: { open: boolean; onToggle: () => vo
 }
 
 function ProjectsPanelIcon({ size }: PropsRuntime<'sidebar.panellist'>): ReactNode {
-  return <ProjectIcon size={size} />
+  return <ProjectIcon size={size} className="dshpx-nav-icon" />
 }
 
 // ---------------------------------------------------------------------------
@@ -1823,6 +1823,17 @@ export function apply(ctx: ClientContext): void {
   // Pinned projects as a collapsible group between the panel rows and the
   // workspace list (see mountSidebarSeat).
   ctx.effect(mountSidebarSeat, 'deep-projects: sidebar projects')
+
+  // The sidebar "Projects" row always lands on the tiles, even when the panel
+  // is already open on a project (dsh does nothing on a re-select).
+  ctx.effect(() => {
+    const onClick = (e: MouseEvent): void => {
+      const row = (e.target as Element | null)?.closest?.('button, a, [role="button"], [role="menuitem"]')
+      if (row?.querySelector('.dshpx-nav-icon')) select(null)
+    }
+    document.addEventListener('click', onClick, true)
+    return () => { document.removeEventListener('click', onClick, true) }
+  }, 'deep-projects: projects row resets to tiles')
 
   // Until the sidebar seat mounts (or if it never can), each pinned project is a
   // plain panel row under "Projects" that opens its project page. No chat tree.
