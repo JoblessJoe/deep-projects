@@ -28,6 +28,7 @@ import {
   IconUnarchiveOutlineRegular as UnarchiveIcon,
   IconFolderOpenRegular as OpenIcon,
   IconChevronsUpDownOutlineRegular as SortIcon,
+  IconChevronLeftOutlineRegular as BackIcon,
   IconSendOutlineRegular as SendIcon,
   IconListPenOutlineRegular as InstructionsIcon,
   IconPaperclipOutlineRegular as PaperclipIcon,
@@ -365,15 +366,17 @@ const CSS = `
 .dshpx-send:disabled { opacity: 0.35; cursor: default; }
 .dshpx-recent-h { margin: 24px 0 0; font-size: 13px; font-weight: 500; color: var(--dsw-alias-label-caption); }
 .dshpx-recent { display: flex; flex-direction: column; }
-.dshpx-recent-row { display: flex; align-items: center; gap: 12px; padding: 14px 4px; border-bottom: 1px solid var(--dshpx-line); cursor: pointer; font-size: 14px; }
-.dshpx-recent-row:hover { background: var(--dshpx-hover); }
+.dshpx-recent-row { display: flex; align-items: center; gap: 12px; height: 48px; box-sizing: border-box; padding: 0 10px; border-radius: 10px; cursor: pointer; font-size: 14px; position: relative; }
+.dshpx-recent-row + .dshpx-recent-row::before { content: ''; position: absolute; top: 0; left: 10px; right: 10px; border-top: 1px solid var(--dshpx-line); }
+.dshpx-recent-row:hover, .dshpx-recent-row:focus-visible { background: var(--dshpx-hover); outline: none; }
+.dshpx-recent-row:hover::before, .dshpx-recent-row:hover + .dshpx-recent-row::before { border-color: transparent; }
 .dshpx-recent-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dsw-alias-label-primary); }
 .dshpx-recent-date { flex: none; font-size: 13px; color: var(--dsw-alias-label-caption); }
 .dshpx-recent-more { flex: none; display: none; }
 .dshpx-recent-row:hover .dshpx-recent-more, .dshpx-recent-row:focus-within .dshpx-recent-more { display: inline-flex; }
 .dshpx-recent-row:hover .dshpx-recent-date, .dshpx-recent-row:focus-within .dshpx-recent-date { display: none; }
 .dshpx-proj-side { display: flex; flex-direction: column; padding-top: 64px; }
-.dshpx-side-item { display: flex; align-items: center; gap: 12px; padding: 14px 4px; border: none; border-bottom: 1px solid var(--dshpx-line); background: transparent; cursor: pointer; text-align: left; font-size: 14px; color: var(--dsw-alias-label-primary); }
+.dshpx-side-item { display: flex; align-items: center; gap: 12px; height: 48px; box-sizing: border-box; padding: 0 10px; border: none; border-radius: 10px; background: transparent; cursor: pointer; text-align: left; font-size: 14px; color: var(--dsw-alias-label-primary); }
 .dshpx-side-item:hover { background: var(--dshpx-hover); }
 .dshpx-side-item-icon { flex: none; display: inline-flex; color: var(--dsw-alias-label-secondary); }
 .dshpx-side-item-label { flex: none; }
@@ -381,6 +384,8 @@ const CSS = `
 .dshpx-side-item-action { margin-left: auto; flex: none; font-size: 13.5px; color: var(--dsw-alias-label-secondary); }
 .dshpx-side-goal { margin: 14px 4px 0; font-size: 13px; line-height: 1.5; color: var(--dsw-alias-label-secondary); white-space: pre-wrap; }
 .dshpx-proj-side .dshpx-path { margin: 10px 4px 0; }
+[class*="_itemWrap"]:has(> [class*="_submenu"])::after { content: ''; position: absolute; top: 0; bottom: 0; left: 100%; width: 12px; }
+.dshpx-back { margin-right: 4px; }
 .dshpx-modal { width: min(640px, 92vw); max-width: none; }
 .dshpx-modal .dshpx-card { border: none; padding: 0; }
 .dshpx-modal .dshpx-card > .dshpx-card-head > .dshpx-h2, .dshpx-modal .dshpx-row-head > .dshpx-h2 { display: none; }
@@ -683,7 +688,7 @@ function ProjectsGrid({ t, allSessions }: { t: T; allSessions: SessionRow[] }): 
     .filter(p => !!p.archived === archived)
     .filter(p => !f || p.name.toLowerCase().includes(f) || (p.description ?? '').toLowerCase().includes(f))
     .map(p => ({ p, at: lastActive(p, allSessions) }))
-    .sort((a, b) => byName ? a.p.name.localeCompare(b.p.name) : b.at - a.at)
+    .sort((a, b) => Number(!!b.p.starred) - Number(!!a.p.starred) || (byName ? a.p.name.localeCompare(b.p.name) : b.at - a.at))
 
   return (
     <div className="dshpx-page-inner">
@@ -802,6 +807,7 @@ function ProjectPage({ t, slug, allSessions }: { t: T; slug: string; allSessions
   return (
     <>
       <div className="dshpx-crumbs">
+        <button type="button" className="dshpx-icon-btn dshpx-back" title={t('detail.back')} aria-label={t('detail.back')} onClick={() => select(null)}><BackIcon size={16} /></button>
         <button type="button" className="dshpx-crumb" onClick={() => select(null)}>{t('tree.title')}</button>
         <span className="dshpx-crumb-sep">/</span>
         {detail && (
