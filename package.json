@@ -1,6 +1,6 @@
 {
   "name": "deep-projects",
-  "version": "0.4.11",
+  "version": "0.4.12",
   "description": "Claude-Desktop-style Projects for DeepSeek Harness (dsh): named rooms in the sidebar, each with a goal, custom instructions, knowledge files and a memory your agents keep up to date, so you never explain a project twice.",
   "icon": "./icon.svg",
   "homepage": "https://joblessjoe.com/deep-projects",
