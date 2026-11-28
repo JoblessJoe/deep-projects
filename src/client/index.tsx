@@ -46,6 +46,7 @@ import {
   IconGoalOutlineRegular as ProjectIcon,
   Menu,
   Modal,
+  StateDot,
   Button,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -275,6 +276,7 @@ const CSS = `
 .dshpx-side .dshpx-empty { padding-inline-start: calc(var(--dsh-sidebar-row-padding, 12px) + 16px + var(--dsh-sidebar-label-gap, 10px)); }
 
 .dshpx-side-child { display: flex; align-items: center; gap: 6px; }
+.dshpx-dot { display: inline-flex; align-items: center; justify-content: center; width: 14px; flex: none; }
 .dshpx-side-child-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dshpx-side-child .dshpx-side-actions { opacity: 0; }
 .dshpx-side-child:hover .dshpx-side-actions, .dshpx-side-child:focus-within .dshpx-side-actions { opacity: 1; }
@@ -528,6 +530,23 @@ async function startProjectChat(cwd: string): Promise<void> {
   const id = await sessions.create({ cwd })
   const ws = ctx.get('uiWorkspace') as unknown as { openSession(target: string): void }
   ws.openSession(id)
+}
+
+type ChatStatus = { running?: boolean; pendingInteraction?: { kind?: string }; completionUnread?: boolean }
+const NO_STATUS: ReadonlyMap<string, ChatStatus> = new Map()
+/** dsh's sidebar status dot for a chat: orange = waits for you, spinner = running
+ * (itself or a subagent), green = finished unread. Nothing when idle, like dsh. */
+function ChatStatusDot({ sessionId }: { sessionId: string }): ReactNode {
+  const src = (appCtx?.get('uiSession') as any)?.sessionStatus as { getSnapshot(): ReadonlyMap<string, ChatStatus>; subscribe(cb: () => void): () => void } | undefined
+  const statuses = useSyncExternalStore(cb => src?.subscribe(cb) ?? (() => {}), () => src?.getSnapshot() ?? NO_STATUS)
+  const sl = appCtx?.sessions.list
+  const list = useSyncExternalStore(cb => sl?.subscribe(cb) ?? (() => {}), () => sl?.getSnapshot() ?? EMPTY_SESSIONS) as any
+  const runs = (id: string) => (statuses.get(id)?.running ?? list.byId[id]?.running) === true
+  const s = statuses.get(sessionId)
+  const pending = ['approval', 'plan-review', 'question'].includes(s?.pendingInteraction?.kind ?? '')
+  const subRunning = (list.projectionsBySession?.[sessionId]?.values?.subagentCatalog ?? []).some((c: { id: string }) => runs(c.id))
+  const state = pending ? 'warning' : runs(sessionId) || subRunning ? 'ongoing' : s?.completionUnread ? 'done' : null
+  return state ? <span className="dshpx-dot"><StateDot state={state} /></span> : null
 }
 
 function relTime(ts: number): string {
@@ -929,6 +948,7 @@ function ProjectPage({ t, slug, allSessions }: { t: T; slug: string; allSessions
                 {chats.map(r => (
                   <div key={r.id} className="dshpx-recent-row" role="button" tabIndex={0}
                     onClick={() => openChat(r.id)} onKeyDown={(e) => { if (e.key === 'Enter') openChat(r.id) }}>
+                    <ChatStatusDot sessionId={r.id} />
                     <span className="dshpx-recent-title">{sessionTitle(r, t)}</span>
                     <span className="dshpx-recent-date">{shortDate(r.updatedAt)}</span>
                     <span className="dshpx-recent-more"><MoreButton label={t('menu.more')} onClick={(e) => openChatMenu(e, r.id, sessionTitle(r, t))} /></span>
@@ -1101,6 +1121,7 @@ function ProjectsSidebarGroup(): ReactNode {
                 )}
                 {chats.map((r) => (
                   <div key={r.id} className="dshpx-side-child" role="button" tabIndex={0} onClick={() => openChat(r.id)} onKeyDown={(e) => { if (e.key === 'Enter') openChat(r.id) }} title={sessionTitle(r, t)}>
+                    <ChatStatusDot sessionId={r.id} />
                     <span className="dshpx-side-child-title">{sessionTitle(r, t)}</span>
                     <span className="dshpx-side-actions"><MoreButton label={t('menu.more')} onClick={(e) => openChatMenu(e, r.id, sessionTitle(r, t))} /></span>
                   </div>
